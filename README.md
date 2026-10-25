@@ -46,5 +46,9 @@ Early architecture and requirements definition.
 No application framework, programming language, database schema, or deployment
 mechanism has been selected.
 
+The [engineering foundation](docs/README.md) defines the domain, discovery and
+reconciliation contracts, launch state semantics, and synthetic acceptance cases.
+These contracts do not select an implementation stack or claim working integrations.
+
 The repository is intended for eventual public release. Publication requires
 a separate review of licensing, repository contents, and disclosure boundaries.
