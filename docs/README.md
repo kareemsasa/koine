@@ -46,6 +46,10 @@ APIs, background synchronization architecture, and process-monitoring implementa
 remain undecided. No expiry interval, automatic matching algorithm, launcher path,
 or universal launcher transport has been selected here either.
 
+The [language/runtime and application architecture comparison](architecture-options.md)
+contains concrete alternatives and an engineering recommendation for owner approval.
+Its status is proposed; it does not change the decisions listed above.
+
 The first vertical slice remains manual and Steam discovery, persistent records,
 distinct ownership and installation, Steam handoff, and observable states. Heroic
 discovery and delegation follow. Local installation discovery cannot promise a

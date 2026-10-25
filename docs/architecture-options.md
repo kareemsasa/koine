@@ -1,0 +1,248 @@
+# Language, runtime, and application architecture proposal
+
+**Status: Proposed — awaiting owner approval.** Evaluation date: 2026-10-25.
+No option in this document is an accepted architectural decision. The
+[foundation](README.md), [domain](domain-model.md),
+[discovery](discovery-contract.md), and [launch](launch-contract.md) contracts
+remain authoritative. This proposal contains engineering judgments informed by
+the linked primary documentation; it is not a benchmark or integration test.
+
+## Recommendation and exact questions
+
+Recommend Rust with Cargo, a modular application-local core, GTK4/libadwaita through
+their Rust bindings, and SQLite for local persistence. Request four independently
+approvable decisions:
+
+| Approval | Exact unresolved question | Recommended answer | Work blocked without it |
+| --- | --- | --- | --- |
+| A: Language/runtime | Which language and execution environment should implement the first slice? | Stable Rust, edition 2024, built/tested with Cargo; standard worker threads for blocking work. If C is approved, GLib owns the UI event loop. Do not add Tokio initially. | Executable domain/reconciliation/launch logic and its contract tests. |
+| B: Application structure | Should the first slice run as one desktop application, a UI plus independent service, or a host with adapter subprocesses? | One application with a UI-independent core and built-in adapters; bounded workers and one serialized coordinator for mutations. Jobs run within the application's lifetime. | Production orchestration, job lifecycle, and integration boundaries. A alone can still unblock isolated domain tests. |
+| C: Desktop UI | Which toolkit and presentation model should implement the Linux UI? | GTK4 plus libadwaita, using gtk4-rs and libadwaita Rust bindings directly. | Desktop shell, library views, target selection, and presentation of evidence and launch states. |
+| D: Persistence direction | Which local storage engine and general data organization should support persistent records? | SQLite with relational separation of concepts and evidence, explicit transactions and migrations, behind a small repository interface. | Durable repository implementation. Exact physical schema remains a subsequent reviewable proposal before migrations are implemented. |
+
+Existing decisions constrain truth and authority, but do not select a language,
+toolkit, process topology, or storage engine. All shortlisted options can satisfy
+the contracts. The recommendation weighs maintainability, explicit state modeling,
+testability without a desktop session, local integration complexity, contributor
+effort, and Linux distribution constraints. There is no evidence yet about future
+maintainers' language preferences, library scale, or performance targets, so no
+numeric scores, staffing assumptions, or performance rankings are assigned.
+
+## Concrete stack alternatives
+
+SQLite is a candidate for each stack, not a unique benefit of Rust. Comparisons
+below are engineering judgments; supporting platform facts are linked afterward.
+
+| Candidate | Shape and contract fit | Material benefits | Material costs and risks | Prefer when |
+| --- | --- | --- | --- | --- |
+| **Rust + GTK4/libadwaita** | Compiled Rust domain/core; GTK objects confined to the UI; adapters and storage in application modules. Enums and distinct ID types can make uncertainty and authority boundaries explicit. | One application language; domain tests can avoid GTK dependencies; direct Linux desktop integration through GLib/GIO; no application WebView boundary. | Rust ownership and GTK/GObject patterns both need contributor learning. Native GTK/libadwaita development libraries are required. The visual language is GNOME-oriented; it will not automatically match every desktop's theme. Compilation and binding/version coordination add maintenance work. | Linux desktop focus and durable typed core are more important than minimizing initial coding effort. **Recommended.** |
+| **Python + PySide6 + Qt Quick/QML** | CPython domain/services, explicit dataclasses/enums and validation, Qt model bridge to QML, workers using Qt signals. | Likely shortest path to implementing and iterating read-only discovery; Qt Quick is well suited to an artwork grid and custom layouts. No Rust ownership learning. | Python, Qt, QML, and binding/runtime dependencies must be distributed together or supplied compatibly. Type annotations alone do not enforce runtime contracts; validation and static checks need discipline. Qt/Python object lifetimes and threads still need care. | Fast iteration and Python familiarity dominate. This is the strongest alternative if maintainers prefer Python. |
+| **C++ + Qt 6 + Qt Quick/QML** | C++ core/application with explicit domain types and Qt models; QML presentation; CMake build. | Direct Qt integration without Python bindings; rich declarative presentation and model/view support. Strong fit for an experienced Qt contributor base. | C++ lifetime, memory, and concurrency discipline remain substantial responsibilities; QML adds a second language boundary. Native compiler/toolkit builds and module licensing need attention. No current requirement specifically benefits from choosing C++. | Maintainers already have sustained C++/Qt expertise or custom Qt presentation becomes a priority. |
+| **Rust + Tauri 2 + TypeScript UI** | Rust owns domain, storage, and OS access; a bundled local HTML/CSS/TypeScript frontend communicates through commands/events. A concrete UI candidate is Svelte with Vite. | Retains a typed Rust core and provides familiar web layout tools; UI can evolve independently of Rust internals. | Rust and web toolchains; serialized IPC state must preserve unknowns and attempt identities. Linux depends on WebKitGTK. Core/WebView permissions, payload validation, and ordering add another boundary to maintain. This is a multi-process runtime even without a backend daemon. | Web UI expertise and visual customization outweigh the additional runtime and IPC work. |
+
+Rust's enums support variants with data; this is a useful implementation tool for
+the existing state distinctions, not proof that reconciliation is correct.
+[Rust enum documentation](https://doc.rust-lang.org/book/ch06-00-enums.html)
+describes the mechanism. Conversely, Python's
+[dataclass documentation](https://docs.python.org/3/library/dataclasses.html)
+explicitly notes that annotations are generally not inspected for their types.
+Python can implement the same contract with explicit validation, tagged values,
+tests, and static checking; it is not disqualified by dynamic typing.
+
+[Qt Quick](https://doc.qt.io/qt-6/qtquick-index.html) supplies QML views, models,
+visual components, and a C++ extension API. The
+[Qt for Python QML tutorial](https://doc.qt.io/qtforpython-6/tutorials/qmlapp/qmlapplication.html)
+shows Python-to-QML data presentation, and
+[QThread documentation](https://doc.qt.io/qtforpython-6/PySide6/QtCore/QThread.html)
+explains worker objects and queued connections. These establish feasible building
+blocks, not a measured development-speed advantage for Koiné.
+
+Tauri documents its [core/WebView process model](https://v2.tauri.app/concept/process-model/)
+and [Linux prerequisites](https://v2.tauri.app/start/prerequisites/), including
+WebKitGTK development dependencies. The suggested Svelte frontend would add a web
+build toolchain; it would not require shipping a Node server. UI commands should
+express operations such as requesting a selected target, not expose arbitrary
+shell execution or database writes. A chosen web framework would need its own
+dependency/version review before scaffolding.
+
+The language does not decide launcher delegation correctness. Every candidate
+still needs supported Steam/Heroic formats, transport semantics, and carefully
+limited process observations. Choosing Rust does not resolve these external facts.
+
+## Application architecture alternatives
+
+These choices are independent of the toolkit. Even a single application should
+keep business rules out of widget callbacks.
+
+| Structure | Benefits against the contracts | Costs and limits | Recommendation |
+| --- | --- | --- | --- |
+| **Application-local modules and workers** | One mutation coordinator can reconcile scoped results consistently. Pure core functions accept observations and produce decisions. UI-independent tests can cover failures without Steam or a desktop. | UI and application integration share a failure boundary. Background work ends when the application exits; recovery must preserve uncertainty. Slow filesystem/command operations still need bounded workers and honest cancellation. | **Choose for the first slice.** It satisfies established behavior with the fewest deployment/lifecycle components. |
+| **Desktop UI + independent per-user service** | A service can own storage and observation while a UI disconnects; allows future multiple clients. | IPC protocol/versioning, service activation, shutdown, permissions, recovery, and separate logs/builds. Continued monitoring after UI exit would introduce a new lifecycle commitment. No existing requirement needs it. | Defer unless a concrete requirement calls for continued work without the app UI. Do not add a workstation service now. |
+| **Application host + adapter subprocesses** | Adapter crashes can be isolated; potentially supports different integration languages. | Serialization and protocol versions for claims/coverage, subprocess lifecycle, cancellation, deployment, and compatibility. Isolation alone does not preserve source authority. | Defer until a real adapter needs isolation or a second implementation language. Built-in adapters are enough initially. |
+
+An event-sourced system is another storage/orchestration option, not a requirement
+of retaining provenance. It would introduce replay/versioning and projection
+maintenance before the project needs them. Recommend ordinary persistent records
+with enough observation/supersession evidence to explain current conclusions.
+Avoid a generic plugin system, local HTTP API, dependency-injection framework, or
+message broker for the first slice. Small explicit interfaces at actual I/O
+boundaries provide the test seams needed here.
+
+## Proposed module and runtime boundaries
+
+The following is a proposed dependency direction, not an approved source tree.
+Two Cargo packages are sufficient initially: a UI-independent core library, and
+the desktop application containing UI and integration modules. Do not split every
+adapter or domain concept into a separate package.
+
+```mermaid
+flowchart TD
+    UI[GTK4 / libadwaita presentation] --> APP[Application coordinator]
+    APP --> CORE[Domain rules and reconciliation]
+    APP --> DISC[Manual and Steam discovery workers]
+    APP --> STORE[Local repository]
+    APP --> HANDOFF[Launcher handoff transport]
+    APP --> OBS[Bounded observation interface]
+    DISC --> DATA[Read-only external observations]
+    STORE --> DB[(SQLite if D approved)]
+    HANDOFF --> LAUNCHERS[Authoritative external launchers]
+```
+
+The core owns typed source/context IDs, separate records for the five concepts,
+claim knowledge/freshness, coverage validation, reconciliation, and the two launch
+state axes. It depends on data and narrow interfaces, not GTK, filesystem layouts,
+SQL rows, command templates, or launcher configuration. The application passes in
+time/ordering evidence; tests supply deterministic values rather than sleeping.
+
+The application coordinates bounded discovery and launch operations, validates
+results, and serializes changes to library/attempt state. Workers perform blocking
+reads or transport operations and return scoped data. Arrival order remains
+different from evidence order under R6. The UI displays committed conclusions and
+explicit pending operations; it must not optimistically label a game running.
+
+For the recommended GTK option, the GLib main loop owns widgets. Discovery,
+database I/O, and command waiting must not block that loop. A bounded worker
+mechanism passes ordinary data back through GLib-compatible notifications; exact
+queue/channel libraries can be selected during implementation. Storage has one
+write coordinator and is kept off the UI thread. GTK's
+[threading rules](https://docs.gtk.org/gtk4/section-threading.html) and the gtk-rs
+[event-loop guidance](https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html)
+support this separation. Tokio is a feasible later choice if an approved dependency
+requires it; it is not needed solely for the current local-file slice.
+
+Jobs start on explicit application operations. No periodic synchronization,
+autostart daemon, or continued observation after application exit is proposed.
+Cancellation stops Koiné work where possible and records partial/inconclusive
+results; it must not kill an externally launched game or change its launcher
+configuration. Launch forwarding can outlive a bounded wait; a timeout cannot be
+turned into definite command failure merely to simplify shutdown.
+
+There is no atomic transaction spanning Koiné's storage and an external launcher.
+Propose recording attempt intent before issuing handoff, then recording the actual
+transport result separately. A crash around submission may leave disposition
+unknown: recover as inconclusive with its evidence and never automatically replay
+the command. An intent record is not proof that a request reached the launcher.
+If intent persistence fails, report that preflight failure before submission.
+If submission occurred but result persistence fails, do not claim that no handoff
+occurred. This is an engineering proposal for satisfying the existing uncertainty
+contract, not an exactly-once execution guarantee.
+
+## Persistence alternatives and proposed scope
+
+| Option | Fit and material tradeoff |
+| --- | --- |
+| **SQLite relational records** | Can represent independent entries, access claims, installations, targets, evidence, and scan/attempt bookkeeping with transactions and referential constraints. Requires deliberate schema/migration design, unknown-state encoding, and write coordination. **Recommended.** |
+| **Versioned JSON document files** | Easy to inspect and initially small dependency surface. Must implement consistent cross-record updates, crash recovery, migration, locking, and query/index behavior as relationships grow. Adequate for fixtures; less attractive for the primary library store. |
+| **Client/server database** | Useful for independently connected concurrent clients; adds a service, credentials/configuration, and distribution/administration work without an established local-library requirement. Not recommended for the first slice. |
+
+SQLite's own [use-case guidance](https://www.sqlite.org/whentouse.html) includes
+local desktop application storage, and its
+[transaction documentation](https://www.sqlite.org/transactional.html) describes
+atomic database updates. Those capabilities support R7; they cannot determine
+whether a source omission is authoritative or make external handoff atomic.
+The [foreign-key documentation](https://www.sqlite.org/foreignkeys.html) requires
+explicit runtime enforcement rather than assuming a default setting.
+
+Approval D selects the engine and relational direction only. The next schema
+proposal must show scoped uniqueness, recoverable knowledge/freshness and dispute,
+evidence/supersession links, coverage, attempt/process separation, and migration
+behavior. It must not reduce the library to one mutable game row. SQL table names,
+column layouts, indexes, retention limits, journal settings, and the Rust SQLite
+binding are not selected here. A small direct SQL implementation is preferable to
+adding an ORM before its benefit is demonstrated; the binding can be chosen once
+the schema and build constraints are reviewed.
+
+## Testability against the existing contracts
+
+| Contract pressure / existing cases | Proposed implementation boundary and verification |
+| --- | --- |
+| Five concepts; multiple stores, editions, accounts, installations | Distinct core types and scoped references; run the domain cases without GUI or launcher dependencies. Type distinctions help prevent accidental swaps but do not prove matching correctness. |
+| Partial, failed, changing, cancelled, or unsupported scans | Adapter result includes requested/inspected scope and outcome; core reconciliation tests preserve prior claims. Fault-injected file readers test malformed/inaccessible data separately from semantic fixtures. |
+| Stale or conflicting evidence; delayed and duplicate results | Inject clock/order inputs; core tests check timestamp preservation, scoped supersession, and unresolved conflict. Serialized application mutation alone is insufficient. |
+| Persistent library recovery | Repository tests use a temporary database, close/reopen it, and verify identities, relationships, provenance, uncertainty, and migration behavior. No database engine can substitute for these tests. |
+| `sprawl-exit-127` | Fake transport returns definite failure/status 127; assert failed handoff and no observed process or invented session. A separate synthetic helper can test actual OS exit-status handling without launching Steam. |
+| Accepted handoff, timeout, observer loss, PID reuse | Inject transport and observer evidence independently. Unsupported observation reports inconclusive. Select a real identity method only after its separate design/evidence review. |
+| Missing artwork | Optional presentation data is outside the handoff dependency chain; test that missing/failed metadata leaves a valid launch operation available. |
+
+After approval A, translate applicable portions of all 24 specifications into
+core tests and identify the adapter/storage/UI portions that still need their
+respective implementation. Rust supports separate
+[library unit and integration tests](https://doc.rust-lang.org/book/ch11-03-test-organization.html).
+Do not count a fixture-based test as live Steam/Heroic verification, and do not
+claim an unimplemented storage or UI case passed just because its pure rules did.
+
+## Tradeoffs accepted by the recommendation, if approved
+
+Rust increases initial implementation and contributor learning effort relative to
+the Python candidate. GTK adds GObject/main-thread integration work rather than
+eliminating it. This recommendation prioritizes a typed, testable core and a small
+Linux desktop runtime boundary over the quickest visual prototype. If maintainers
+expect primarily Python contributions, that preference is a sound reason to choose
+Python/PySide6 instead; no measured productivity data resolves it today.
+
+Libadwaita describes itself as
+[building blocks for GNOME applications](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/).
+Choosing it is a visual/toolkit direction, not a requirement to run GNOME. GTK
+documents [Wayland](https://docs.gtk.org/gtk4/wayland.html) and
+[X11](https://docs.gtk.org/gtk4/x11.html) backends, but backend availability depends
+on the shipped build. Validate supported sessions and desktop integration instead
+of forcing a compositor, GPU, backend, or theme. Accessibility, keyboard navigation,
+image loading, startup time, memory, and large-library responsiveness still need
+product tests; none is established by toolkit selection.
+
+A Rust binary using GTK is not a self-contained universal Linux executable.
+[GTK compilation documentation](https://docs.gtk.org/gtk4/compiling.html) describes
+native-library/build requirements. Minimum runtime/library versions and packaging
+remain open. A sandboxed package may change visibility of library directories,
+launcher access, and process evidence; a toolkit choice does not solve those
+constraints. Distribution decisions must be tested against discovery and handoff
+before promising support. Do not install workstation packages during this decision
+review or choose version floors from the development machine.
+
+Dependencies keep their own licenses. Libadwaita's documentation lists
+LGPL-2.1-or-later; [Qt for Python](https://doc.qt.io/qtforpython-6/) lists
+LGPLv3/GPLv3/commercial options, and
+[Qt's licensing documentation](https://doc.qt.io/qt-6/licensing.html) distinguishes
+modules with different terms. Preserve Koiné's MIT license; review actual selected
+modules, linking/bundling, and notices before release. This evaluation is not
+distribution clearance and does not assume a paid Qt license is necessary.
+
+## Approval boundary and remaining work
+
+Approval can name A, B, C, and D separately, or approve the recommendation as a
+whole. A and B unblock the executable core and application coordination; C adds
+the desktop shell; D unblocks the concrete schema proposal. No response, a local
+commit of this document, or approval of one row implies approval of other rows.
+
+Packaging/distribution, exact physical schema, ownership API authentication,
+periodic/background synchronization, process-monitoring method, specific launcher
+transports, automatic cross-store matching, and freshness policies remain open.
+Source formats and transports still need the
+[integration evidence work](integration-evidence.md). These do not prevent core
+tests or an honest inconclusive process state after A/B approval, but they do
+limit claims about completed integrations and the persistent desktop slice.
+
+Until owner approval, do not scaffold the application, add dependency manifests,
+install dependencies, implement migrations, or update current-state documentation
+to say the proposed technologies were selected. This pass prepares a local
+decision artifact only; publication still requires authorization.
