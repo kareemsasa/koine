@@ -16,8 +16,8 @@ game configuration and execution.
    references, their limits, and work still requiring integration verification.
 6. [Approved logical-to-relational mapping](persistence-mapping.md): scoped identity,
    supersession validity, launch recovery, and deterministic reconstruction.
-7. [Physical SQLite schema proposal](sqlite-schema-proposal.md): proposed columns,
-   relational constraints, indexes, guards, and remaining review decisions.
+7. [Approved physical SQLite design baseline](sqlite-schema-proposal.md): catalog,
+   canonical protocols, guard/seal requirements, and operational decisions still open.
 
 ## Authority and status
 
@@ -38,10 +38,10 @@ Accepted physical choices are recorded below. Contract elaborations include scop
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
-The repository remains documentation only. A–D and the clarified logical mapping
-have approval within their recorded boundaries. Authorized work includes preparing
-the physical schema proposal; the schema is not approved and implementation is
-not authorized. No adapter is implemented, no real Steam/Heroic verification is
+The repository remains documentation only. A–D, the clarified logical mapping,
+and the physical SQLite design have approval within their recorded boundaries.
+The current action is recording physical-design approval; implementation is not
+authorized. No adapter is implemented, no real Steam/Heroic verification is
 recorded, and the 24 synthetic cases remain specifications rather than executed tests.
 
 ## Approved architecture and open decisions
@@ -58,19 +58,21 @@ The owner separately approved the [clarified logical mapping](persistence-mappin
 from the discussion. All four review conditions are satisfied as behavioral
 obligations. Heroic's reporter-local identity profile remains provisional; manager
 authority is distinct from storefront identity authority. The
-[physical schema proposal](sqlite-schema-proposal.md) remains the next independent
-approval gate. Its complete catalog and revised mechanisms await approval; limited
-accepted choices are recorded below.
+[physical SQLite design baseline](sqlite-schema-proposal.md) now has independent
+owner approval of its catalog, canonical digest protocols and specified guard/seal
+behavior. The owner inspected the uploaded revision, not local Git state, and did
+not execute SQL. This closes the design-review gate, not executable validation.
 
 The owner subsequently accepted lowercase UUID TEXT, UTC integer microseconds,
 path BLOBs, SHA-256 as content-digest algorithm, and STRICT/3.37.0 as schema baseline
-subject to distribution verification. Deferred sealing is accepted in principle;
-its canonical protocol and exact guards/verification still need review. The
+subject to distribution verification. Deferred sealing, canonical protocols and
+specified guard behavior are approved as design. The
 [physical review disposition](sqlite-schema-proposal.md#physical-review-disposition)
-defines the limits. The complete physical catalog remains Proposed.
+defines the limits and attached requirements: reproducible canonical-serialization
+vectors and guard/conformance checks for incomplete decisions, invalid references,
+post-closure mutations and inconsistent coverage. None has been executed.
 
-Exact physical schema, foreign keys/indexes/constraints, canonical digest protocols,
-migration strategy, connection model, durability,
+Connection ownership, journal/durability settings, busy handling, migration/recovery,
 retention policy, packaging/distribution, ownership authentication, specific Steam/Heroic transports,
 synchronization scheduling, process identity mechanisms, and detailed UI design
 remain open. No expiry interval or automatic matching algorithm is selected.
@@ -80,8 +82,8 @@ distinct ownership and installation, Steam handoff, and observable states. Heroi
 discovery and delegation follow. Local installation discovery cannot promise a
 complete owned-game library.
 
-The language/runtime, application structure, toolkit, engine, and logical mapping
-decisions are resolved within those boundaries. Implementation remains outside
+The language/runtime, application structure, toolkit, engine, logical mapping and
+physical-design decisions are resolved within those boundaries. Implementation remains outside
 this documentation-only next action. The core must be independently testable
 without GTK, SQLite, or live launchers; architectural approval does not establish
 reconciliation correctness.

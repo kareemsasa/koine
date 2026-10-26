@@ -1,18 +1,22 @@
-# Physical SQLite schema proposal
+# Physical SQLite schema design baseline
 
-**Status: Proposed — independent owner review required.** Prepared 2026-10-26.
-The [logical mapping](persistence-mapping.md) is approved. The owner has accepted
-the limited choices recorded below; the complete physical catalog and the revised
-mechanisms remain proposed.
-[A–D](architecture-options.md) approve SQLite and relational separation, not this
-physical design. This document contains a column/constraint catalog, not an SQL
-migration. No database has been created and no executable schema tests have run.
+**Status: Approved at the design level; executable correctness unverified.**
+Originally prepared 2026-10-26. The owner independently reviewed the uploaded
+revision at reported baseline `e728114` and approved its physical catalog,
+canonical digest protocols, and specified guard/seal behavior. This is a separate
+approval from [A–D](architecture-options.md) and the
+[logical mapping](persistence-mapping.md).
+This document specifies implementation obligations; it is not executable SQL or
+an SQL migration. No database has been created and no executable schema tests have
+run. This approval authorizes recording the decision, not implementation.
 
 ## Physical review disposition
 
-The owner reviewed the uploaded proposal at `d951846`, not executed SQL or runtime
-behavior, and required revisions before catalog approval. The engineering origin
-of the design is unchanged; this is the subsequent owner-review record.
+The earlier review of `d951846` required revisions. The owner subsequently inspected
+the uploaded revision's relational catalog, coverage model, canonical protocols,
+decision sealing, and recovery rules, and approved the design baseline. The owner
+did not inspect local Git state or execute SQL. The engineering origin of the
+specification is unchanged by this approval; the review history is retained below.
 
 | Choice | Owner disposition | Remaining boundary |
 | --- | --- | --- |
@@ -20,34 +24,57 @@ of the design is unchanged; this is the subsequent owner-review record.
 | UTC integer microseconds | Accepted | Source time remains distinct from collection time; no ordering authority follows from a timestamp. |
 | Byte-preserving Linux paths as BLOB | Accepted | Path interpretation remains source/context-specific. |
 | STRICT and SQLite minimum 3.37.0 | Accepted as schema baseline | Distribution compatibility still needs verification; no packaging choice follows. |
-| SHA-256 content digests | Algorithm accepted | The canonical protocol specified in this revision awaits review. |
-| Deferred decision sealing | Accepted in principle | Exact guards, framing, and verification protocol await review and later executable validation. |
-| Immutable evidence and derived current state | Direction accepted | Does not approve every physical table/constraint or a retention policy. |
-| Complete physical catalog | Approval withheld pending revision | Manual lifecycle, coverage/diagnostics, repeatable key evidence, and digest details below are proposed corrections. |
+| SHA-256 content digests and canonical protocols | Approved at design level | Reproducible canonical-serialization vectors are required; none has been executed. |
+| Deferred decision sealing and specified guards | Approved at design level | Actual DDL, guard/conformance and transactional validation remain required and unperformed. |
+| Immutable evidence and derived current state | Approved design | No evidence-retention or pruning policy is implied. |
+| Complete physical catalog | Approved at design level | Approval establishes implementation obligations, not executable correctness or implementation authorization. |
 
-## Review choices and alternatives
+| Required correction | Independent owner review result |
+| --- | --- |
+| Manual-entry removal and restoration | Satisfied |
+| Bounded coverage and attributable diagnostics | Satisfied |
+| Repeatable source-key evidence | Satisfied |
+| Canonical digest framing and seal verification | Satisfied |
 
-| Choice needing review | Concrete recommendation | Alternative / practical consequence |
+### Attached validation requirements and authorization boundary
+
+The future implementation must verify canonical serialization using reproducible
+test vectors. Guard/conformance tests must demonstrate that incomplete decisions,
+invalid references, post-closure mutations, and inconsistent coverage cannot become
+authoritative. Actual DDL and transactional validation are required before claiming
+executable correctness. These are attached obligations, not completed validations
+or permission to create vectors, tests, code, or databases in this recording step.
+All 24 acceptance specifications remain unchanged and unexecuted.
+
+Connection ownership, journal and durability configuration, busy handling,
+migration/recovery, and evidence retention remain independent open decisions.
+Distribution compatibility remains unverified. No authorization to create migrations,
+Rust code, databases, or run live launcher integrations or publish follows from
+the design approval. The current next action is documentation only.
+
+## Design choices, retained alternatives, and operational decisions
+
+| Design area | Baseline or open decision | Retained alternative / practical consequence |
 | --- | --- | --- |
-| Encoding enforcement | Use the accepted UUID/text, timestamp/integer and path/BLOB choices with explicit checks; use the proposed canonical framing below. | UUID BLOBs and older-baseline non-STRICT tables remain historical alternatives, not current recommendations. Enforcement and framing still require review/validation. |
+| Encoding enforcement | Use UUID/text, timestamp/integer and path/BLOB choices with the specified checks and canonical framing below. | UUID BLOBs and older-baseline non-STRICT tables remain historical alternatives. Enforcement and framing have design approval; executable validation remains required. |
 | SQLite distribution support | Use the accepted STRICT/3.37.0 schema baseline. | Verify compatibility in the eventual distribution model rather than infer availability from the development workstation. |
 | Claim layout | A closed claim-subject registry and one finite typed-payload claim table, described below. | Separate tables per claim family reduce nullable payload fields but multiply common provenance and supersession structures. No unrestricted attribute/plugin schema is proposed. |
 | Source identity resolution | Preserve source-entry handles and reporter-local keys; derive equivalence only from supported identity claims. | Destructive canonicalization would require rewriting references and loses the original distinction. |
 | Current state | Derive from evidence and validated decisions; no authoritative current-state cache initially. | Materialized projections need explicit invalidation and consistency rules. |
 | Mutation protection | Immutable facts and decisions, with rejecting update/delete guards; revisions add claims. | Relying solely on application convention gives weaker database protection. A later approved retention/migration path must account for these guards. |
 | Connections and durability | Leave connection ownership, journal mode, synchronous setting, busy handling, and crash-backup mechanics open. | Serialized application mutation alone does not select any of them. |
-| Migration and retention | Leave version transitions, recovery tooling, pruning, and archival open. | No migration or automatic purge is included in this proposal. |
+| Migration and retention | Leave version transitions, recovery tooling, pruning, and archival open. | No migration or automatic purge is included in this design. |
 
-Exact catalog approval can be separate from distribution, connection, migration,
-and retention decisions. Any dependency still open must be settled before the
-implementation that requires it; approving this document would not itself authorize
+Catalog approval is separate from distribution, connection, migration, and
+retention decisions. Any dependency still open must be settled before the
+implementation that requires it. This design approval does not authorize
 implementation or publication.
 
 ## Catalog notation and universal rules
 
 Each table has `id: ID` as an explicitly non-null primary key unless a different
 primary key is stated. `ID` expands to SQLite `TEXT` with binary collation and the
-proposed UUID format checks. `T` is non-null `TEXT`; `B` is non-null `BLOB`; `I`
+specified UUID format checks. `T` is non-null `TEXT`; `B` is non-null `BLOB`; `I`
 is non-null `INTEGER`; `U` is `I` interpreted as UTC microseconds since Unix epoch.
 Suffix `?` means nullable. An ID column followed by `→table` is an explicit foreign
 key to that table's `id`, unless a composite parent key is specified. Every other
@@ -65,8 +92,8 @@ convention and never chronology or authority.
 
 SHA-256 is accepted for the 32-byte content digests. The
 [canonical framing and verification protocol](#canonical-digest-framing-and-seal-verification)
-below is proposed, not approved or implemented. It defines precise byte encoding,
-record membership, and ordering. Digests verify only their specified records;
+below is approved at the design level and unimplemented. It defines precise byte
+encoding, record membership, and ordering. Digests verify only their specified records;
 they do not authenticate source facts or make a conclusion authoritative.
 
 Path values are BLOBs with no Unicode normalization or case folding. The core
@@ -75,7 +102,7 @@ explicit locator kind; they are not executed. Timestamps may be negative and sou
 times may be unknown. No cross-clock or even local wall-clock ordering is inferred
 from arithmetic on collection timestamps.
 
-Foreign keys propose immediate enforcement and `RESTRICT` for updates/deletes,
+Foreign keys use immediate enforcement and `RESTRICT` for updates/deletes,
 except the explicitly deferred decision-to-seal completion reference below.
 There are no cascades through evidence. Every composite parent tuple referenced
 below has an explicit `UNIQUE` key in matching order/collation. Optional composite
@@ -91,9 +118,8 @@ facts. Reject updates/deletes with guards that abort without changing other rows
 The repository must never issue replacement-style inserts. These guards assume
 enforcement is enabled and do not make an externally modified file trustworthy.
 Duplicate delivery must compare existing immutable content and either return
-idempotently or reject the conflicting delivery with a diagnostic. This guard
-design remains proposed; it is
-not an approved indefinite-retention policy.
+idempotently or reject the conflicting delivery with a diagnostic. This approved
+guard design does not establish an indefinite-retention policy.
 
 ## Rules, contexts, and scoped source keys
 
@@ -160,7 +186,7 @@ replace older raw keys or silently apply a different canonicalization rule.
 The provisional Heroic reporter profile is not an approved seed definition. Its
 key role remains reporter_local. Independently justified storefront identity uses
 a separate supported catalog profile; it does not promote Heroic into storefront
-identity authority. This proposal does not verify Heroic's key format.
+identity authority. This design approval does not verify Heroic's key format.
 
 ## The five concepts and identity relationships
 
@@ -272,7 +298,7 @@ the supported catalog-key semantics and evidence.
 
 | Table | Columns in addition to `id` | Relational constraints |
 | --- | --- | --- |
-| `authority_scopes` | `authority_namespace T`, `scope_key B`, `subject_context_id ID?→contexts`, `manager_context_id ID?→contexts`, `machine_context_id ID?→contexts`, `library_context_id ID?→contexts`, `provisional_token ID?` | Unique `(authority_namespace,scope_key)`. The canonical framing section defines the proposed role-qualified scope key. The core validates the encoding against the columns and isolates unknown required contexts. Manual visibility requires a library context. |
+| `authority_scopes` | `authority_namespace T`, `scope_key B`, `subject_context_id ID?→contexts`, `manager_context_id ID?→contexts`, `machine_context_id ID?→contexts`, `library_context_id ID?→contexts`, `provisional_token ID?` | Unique `(authority_namespace,scope_key)`. The canonical framing section defines the specified role-qualified scope key. The core validates the encoding against the columns and isolates unknown required contexts. Manual visibility requires a library context. |
 | `collections` | `kind T`, `reporter T`, `reporter_version T`, `reporter_context_id ID→contexts`, `interpretation_rule_id ID→rule_versions`, `started_at U`, `request_protocol T`, `request_digest B` | Kind discovery or manual; request protocol koine.request.v1; digest length 32. Reporter is separate from claim authority. Digest covers registered request metadata/units, not source authenticity. |
 | `requested_units` | `collection_id ID→collections`, `unit_key T`, `authority_scope_id ID→authority_scopes`, `dimension T`, `root_context_id ID?→contexts`, `selector B?`, `selector_rule_id ID?→rule_versions` | Unique `(collection_id,unit_key)`, `(id,collection_id)` and `(id,collection_id,dimension,authority_scope_id)`. Selector and selector-rule reference are both present or both NULL. The core validates the selector, full request membership, and dimension. No credentials in selectors. |
 | `coverage_results` | `unit_id ID→requested_units`, `collection_id ID→collections`, `dimension T`, `authority_scope_id ID→authority_scopes`, `outcome T`, `reason T?` | Unique `unit_id` and `(id,collection_id,unit_id,dimension,authority_scope_id)`. Composite FK `(unit_id,collection_id,dimension,authority_scope_id)` references the corresponding requested-unit tuple. Outcome complete, partial, failed, or inconclusive; non-complete requires a reason. Exact extents are in coverage_parts. |
@@ -288,13 +314,13 @@ requested unit, with selector_kind=whole_unit and NULL selector/rule. The core
 requires that root and matching root/result outcomes before closure; the unique
 index enforces at most one root. Non-root parts require selector_kind=bounded or
 residual, non-null selector bytes and selector-rule reference. Parent FKs preserve
-scope. A proposed insert guard rejects missing parents, self-parenting, a parent
+scope. The specified insert guard rejects missing parents, self-parenting, a parent
 chain reaching the new ID, or an already cyclic parent chain; core validation also
 requires acyclicity on closure/read. An immediate FK by itself is not a cycle proof.
 Children partition the parent's scope,
 not its request timestamp or order of discovery.
 
-The proposed v1 selector is exactly E(list), without an envelope, using the framing
+The v1 selector is exactly E(list), without an envelope, using the framing
 primitives defined below: path selectors are [path, path-bytes, item-or-subtree]; key selectors
 are [keys, namespace, identity-scope-UUID, ordered-key-list]; residual selectors are
 [remainder, parent-part-UUID, ordered-excluded-sibling-UUID-list]. The first value
@@ -346,7 +372,7 @@ age remains separate from collection time; unknown source age stays unknown.
 
 Register a collection and its original requested units together. Final application
 of evidence, coverage, claims, decisions, and the closure is a separate atomic
-transaction. Insert the closure last. Proposed insert guards reject new units,
+transaction. Insert the closure last. Specified insert guards reject new units,
 results, parts, diagnostics, key observations, evidence, claims, negative
 justifications, and collection-linked decisions
 after closure. A request digest is checked in the core so registration cannot be
@@ -456,14 +482,14 @@ Before inserting a supersession, the core proves every approved validity conditi
 and includes the cited proof claims. Where distinct handles are involved, it must
 prove subject compatibility through valid source identity evidence; equivalence of
 source entries alone does not equate two accounts, installations, or entitlements.
-Propose an insertion guard that rejects a new edge when a path already exists from
+The specified insertion guard rejects a new edge when a path already exists from
 replacement back to older. The core also validates the whole graph on reading;
 invalid/cyclic stored decisions produce scoped diagnostics and no definitive winner.
-This is a proposed guard obligation, not an implemented or tested recursive query.
+This is an approved guard obligation, not an implemented or tested recursive query.
 
 Unordered contradiction creates a dispute decision with conflicting claim links,
 not a supersession. Decision timestamps record reasoning, never source ordering.
-Corrections require new evidence and explicit decisions; this proposal supplies
+Corrections require new evidence and explicit decisions; this design supplies
 no silent deletion of a bad decision. Recovery/repair mechanics remain open.
 Insert guards reject additional claim-role links or supersession edges for sealed
 decisions. The deferred completion FK requires a seal before commit; the seal's
@@ -480,8 +506,8 @@ that old evidence was freshly collected.
 
 ## Canonical digest framing and seal verification
 
-**Protocol status: Proposed for review.** SHA-256 is accepted; the following exact
-serialization, record manifests, and verification behavior are not yet approved.
+**Protocol status: Approved at the design level; executable behavior unverified.**
+The following exact serialization, manifests and verification behavior are approved.
 There are no executable examples, computed digests, or conformance results here.
 
 ### Byte grammar
@@ -631,7 +657,7 @@ is invalid, not a reason to try another manifest until a digest happens to match
    a supported protocol and exactly one seal, reconstruct the exact metadata/link/
    edge sets, recompute the framed digest, and compare all 32 stored bytes. Also
    validate referenced evidence, rules, authority, ordering and graph integrity.
-   Digest equality is necessary for this proposed protocol but insufficient for
+   Digest equality is necessary for this protocol but insufficient for
    factual validity.
 5. A missing seal, invalid shape, mismatch, unsupported protocol, or invalid proof
    produces a scoped integrity/uncertainty diagnostic. Do not apply its supersession
@@ -640,7 +666,7 @@ is invalid, not a reason to try another manifest until a digest happens to match
 
 There is no assumed SQLite SHA-256 function. Guards reject structural mutation;
 the future core performs canonical hashing and semantic verification. The prose
-guard obligations and verification protocol are proposed for review here. SQL
+guard obligations and verification protocol have design approval. SQL
 definitions and executable validation are later implementation work requiring
 separate authorization; none is provided here. Collection-time diagnostics are
 sealed with their result; later read
@@ -690,12 +716,12 @@ Observer epoch identifies the runtime observation context; it is not proof of
 continuity. Cold restart preserves historical observations and reports current
 process observation inconclusive until identity continuity is re-established.
 Contradictory handoff records at incompatible/unresolved boundaries are diagnosed,
-not resolved by their row order. No game-session or playtime table is proposed.
+not resolved by their row order. No game-session or playtime table is included.
 
 ## Index and guard catalog
 
 In addition to the primary, unique, and partial-unique indexes specified above,
-propose non-unique indexes for every FK's child columns in the declared order,
+use non-unique indexes for every FK's child columns in the declared order,
 unless an existing index already has those columns as its leftmost prefix. Add
 `claims(subject_id,evidence_id)`, `evidence_records(collection_id,collected_at)`,
 `supersessions(replacement_claim_id,older_claim_id)`,
@@ -703,7 +729,7 @@ unless an existing index already has those columns as its leftmost prefix. Add
 `process_observations(attempt_id,observed_at)`. Time indexes support retrieval, not
 factual precedence. No full-text/artwork index or performance claim is included.
 
-The proposed guards are: reject update/delete on immutable catalog records; reject
+The specified guards are: reject update/delete on immutable catalog records; reject
 new collection content after closure; reject additions to sealed decisions; and
 reject cyclic supersession insertion and invalid/cyclic coverage parenting.
 They abort rather than mutate the row being checked. Closing a collection after
@@ -714,7 +740,7 @@ Startup/read validation must not assume constraints prove the file is uncorrupte
 
 ## Transaction and reconstruction obligations
 
-| Operation | Proposed atomic boundary / recovery behavior |
+| Operation | Specified atomic boundary / recovery behavior |
 | --- | --- |
 | Manual creation/removal/restoration/grouping | Identities as needed, user-assertion evidence, visibility/grouping claims, justified supersession and decision seals together. Hidden manual records preserve their history and do not hide matching storefront entries. |
 | Collection registration | Collection and original requested-unit records together. No library conclusions are replaced. |
@@ -725,7 +751,7 @@ Startup/read validation must not assume constraints prove the file is uncorrupte
 
 No database transaction spans filesystem enumeration, command waiting, or launcher
 execution. Blocking storage work also stays outside GTK's UI thread. Large-result
-batching is not proposed; it would need explicit consistency/coverage rules.
+batching is not included; it would need explicit consistency/coverage rules.
 Connection ownership, write-transaction mode, durability and busy handling remain
 independent decisions.
 
@@ -749,7 +775,7 @@ stable without granting authority to its sort key.
 
 The existing 24 [acceptance specifications](acceptance-cases.md) remain unchanged.
 The following are additional review obligations, not executable tests or claims
-that SQLite has accepted the proposed constraints:
+that SQLite has accepted the specified constraints:
 
 | Review input | Required result |
 | --- | --- |
@@ -775,7 +801,7 @@ authorized or represented as complete by this document.
 
 ## SQLite evidence and remaining gate
 
-Primary documentation inspected for this proposal:
+Primary documentation inspected for this design:
 
 - [STRICT tables](https://www.sqlite.org/stricttables.html): support begins at
   3.37.0 and permitted type names are restricted. The owner accepted this schema
@@ -787,15 +813,17 @@ Primary documentation inspected for this proposal:
   tuples need matching primary/unique keys and collations. Mere creation of a
   table is not sufficient verification of every foreign-key relationship.
 - [Triggers](https://www.sqlite.org/lang_createtrigger.html): rejecting guards can
-  raise constraint errors. Proposed guards must not modify the row they inspect.
+  raise constraint errors. Specified guards must not modify the row they inspect.
 - [Transactions](https://www.sqlite.org/lang_transaction.html): database atomicity
   and single-writer behavior do not determine application connection ownership or
   make an external launcher action atomic with storage.
 
-The review gate is approval/revision of the corrected physical catalog, canonical
-protocols, exact guard behavior, and seal verification. Accepted encodings, SHA-256,
-and schema baseline are recorded above, not reopened as unanswered choices.
-Connection ownership, durability, migration/recovery and retention remain open.
+The physical-design review gate is satisfied. The catalog, canonical protocols and
+specified guard/seal behavior form the approved implementation design baseline.
+Executable correctness remains unverified and subject to the attached reproducible
+serialization vectors and guard/conformance requirements. Connection ownership,
+journal/durability settings, busy handling, migration/recovery and retention remain
+open. Distribution compatibility is still unverified.
 No current ownership, integration success, executable correctness, or publication
 clearance follows from documenting the schema. Implementation needs separate
 authorization after the relevant design decisions are settled.
@@ -808,3 +836,11 @@ authorization after the relevant design decisions are settled.
   withheld complete catalog approval for three modeling gaps and canonical digest
   details. This revision proposes the corrections. It records no SQL/runtime
   success, distribution compatibility, implementation authorization, or publication.
+- Independent review of the uploaded revised proposal at reported baseline
+  `e728114`: the owner found all four corrections satisfied and approved the
+  physical catalog, canonical protocols and specified guard/seal behavior at the
+  design level. The owner did not inspect local Git state or execute SQL. Required
+  reproducible serialization vectors and guard/conformance validation remain
+  unperformed. Operational decisions and implementation/publication authorization
+  were not advanced. The preceding Proposed/withheld entries describe historical
+  checkpoints, not the current design status.

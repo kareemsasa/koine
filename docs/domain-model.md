@@ -55,7 +55,9 @@ context. A path is an observed locator, not by itself a universal identity: moun
 can disappear and directories can move. If continuity cannot be established,
 retain uncertainty rather than silently combining observations. A launch target
 must distinguish the launcher instance and source target even when two stores
-use the same display title. The encoding of these keys remains open.
+use the same display title. Local ID encoding follows the separately approved
+[physical design](sqlite-schema-proposal.md); external key interpretation still
+requires supported source-specific profiles.
 
 ## Evidence belongs to claims
 
@@ -73,8 +75,9 @@ traceable to sufficient evidence:
 Re-observing an old cached record does not necessarily renew the freshness of its
 underlying claim. Keep source age separate from when Koiné read it. Sufficient
 provenance does not require retaining entire files, credentials, or unlimited raw
-history. Physical storage layout and retention mechanisms are unselected, but must
-preserve the basis for current conclusions and their supersession.
+history. The separately approved [physical design](sqlite-schema-proposal.md)
+specifies persistence records and encodings. Retention mechanisms remain open;
+they must preserve the basis for current conclusions and their supersession.
 
 Persistent library records must preserve the five concepts, their stable
 references and relationships, and the evidence needed to recover those conclusions

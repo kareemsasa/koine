@@ -10,6 +10,12 @@ test. Engineering authorship of that analysis is unchanged by owner approval.
 
 ## Approved decisions and boundaries
 
+The table records the scope of the original A–D review. The subsequent
+[physical SQLite design approval](sqlite-schema-proposal.md) independently
+establishes the catalog, canonical protocols and specified guard/seal baseline.
+The schema deferral under D describes that earlier approval checkpoint; it does
+not reopen the now-approved design or approve operational settings by implication.
+
 | Decision | Status | Approved choice | Approval boundary |
 | --- | --- | --- | --- |
 | A: Language/runtime | Approved | Stable Rust, edition 2024, Cargo, standard workers without Tokio initially. | The core must remain independently testable without GTK, SQLite, or live launchers. Types help constrain states; executable tests must still establish reconciliation correctness. |
@@ -25,7 +31,8 @@ and the established contracts. The owner explicitly stated:
 This records engineering approval of the four choices, not independent review or
 blanket approval of every detail in this file. Module layouts, the connection/write
 coordination model, attempt-persistence sequencing, and other detailed proposals
-below remain engineering proposals wherever not expressly covered by A–D.
+below remain engineering proposals wherever not expressly covered by A–D or the
+subsequent physical-design approval.
 
 The next action authorized by this review is documentation only. Architecture
 approval does not authorize implementation, live launcher execution, or public
@@ -159,10 +166,16 @@ unknown: recover as inconclusive with its evidence and never automatically repla
 the command. An intent record is not proof that a request reached the launcher.
 If intent persistence fails, report that preflight failure before submission.
 If submission occurred but result persistence fails, do not claim that no handoff
-occurred. This is an engineering proposal for satisfying the existing uncertainty
-contract, not an exactly-once execution guarantee.
+occurred. This sequencing is now covered by the separate physical-design approval;
+it provides no exactly-once execution guarantee.
 
-## Persistence alternatives and proposed scope
+## Persistence alternatives and original approval scope
+
+This comparison and D's original scope are retained as historical rationale.
+The later [physical design baseline](sqlite-schema-proposal.md) supersedes schema
+deferral only; connection ownership, durability, migration/recovery, and retention
+remain independent open decisions. The paragraphs below describe what D alone
+selected, not a present need to obtain physical-design approval again.
 
 | Option | Fit and material tradeoff |
 | --- | --- |
@@ -250,11 +263,14 @@ choices within the recorded boundaries. They do not authorize implementation in
 this documentation-only next step. No application scaffolding, dependency manifests,
 dependency installation, migrations, or live launcher execution belong in this pass.
 
-Packaging/distribution, exact physical schema, ownership API authentication,
+Packaging/distribution, ownership API authentication,
 periodic/background synchronization, process-monitoring method, specific launcher
 transports, detailed UI design, migration strategy, connection model, retention
 policy, automatic cross-store matching, and freshness policies remain open.
-Source formats and transports still need the
+Physical schema, canonical protocols and specified guards/sealing now have
+separate design approval; executable correctness and the required serialization
+vectors and guard/conformance validation remain unverified. Source formats and
+transports still need the
 [integration evidence work](integration-evidence.md). These do not prevent core
 tests or an honest inconclusive process state once implementation is authorized,
 but they do limit claims about completed integrations and the persistent desktop

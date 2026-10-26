@@ -48,11 +48,13 @@ with built-in adapters, bounded workers and serialized state mutations,
 GTK4/libadwaita through Rust bindings, and SQLite with relational separation of
 records and evidence. Standard workers are approved without Tokio initially.
 
-The [architecture decision record](docs/architecture-options.md) defines the approval
-boundaries. Physical schema, migration strategy, connection model, retention policy,
-packaging/distribution, and other listed decisions remain open. The approval's next
-action is documentation only; implementation and live launcher execution require
-separate authorization.
+The [architecture decision record](docs/architecture-options.md) defines A–D's
+approval boundaries. The [physical SQLite design](docs/sqlite-schema-proposal.md)
+is separately approved as the implementation design baseline; executable correctness
+remains unverified. Connection ownership, journal/durability settings, busy handling,
+migration/recovery, retention policy, packaging/distribution, and other listed
+decisions remain open. The current action is documentation only; implementation,
+database creation, and live launcher execution require separate authorization.
 
 The [engineering foundation](docs/README.md) defines the domain, discovery and
 reconciliation contracts, launch state semantics, and synthetic acceptance cases.

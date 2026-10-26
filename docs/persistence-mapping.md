@@ -1,6 +1,6 @@
 # Approved logical-to-relational mapping
 
-**Status: Approved logical behavior; physical schema not approved.** Recorded
+**Status: Approved logical behavior; physical design separately approved.** Recorded
 2026-10-26 from the owner's review of the clarified discussion draft. The approval
 was of the discussion mapping, not independent inspection of this newly created
 file. [Architecture A–D](architecture-options.md) and the existing
@@ -118,17 +118,22 @@ versions require explicit uncertainty; silently reinterpreting old evidence unde
 new adapter semantics is forbidden. Any reinterpretation needs traceable evidence
 and a recorded decision.
 
-## Independent physical-schema gate
+## Physical-design approval and implementation boundary
 
-The [physical SQLite schema proposal](sqlite-schema-proposal.md) is engineering
-work for review, not an approved schema. UUID/timestamp/path encodings, minimum
-SQLite version and `STRICT` received the subsequent limited owner acceptance
-recorded in that proposal: lowercase UUID TEXT, UTC integer microseconds, path
-BLOBs, and STRICT/3.37.0 as schema baseline, with distribution compatibility still
-unverified. SHA-256 is accepted as algorithm; sealing is accepted in principle.
-The complete catalog, canonical protocols, exact guards/verification, connection
-ownership, durability, migrations, retention, and pruning remain proposed/open.
+The owner independently reviewed the uploaded revised
+[physical SQLite design baseline](sqlite-schema-proposal.md) and approved its
+catalog, canonical digest protocols and specified guard/seal behavior at the design
+level. This is a separate approval from the logical mapping recorded above, and
+does not establish local Git verification or executable correctness.
+
+The implementation must verify canonical serialization using reproducible vectors
+and demonstrate through guard/conformance checks that incomplete decisions,
+invalid references, post-closure mutations and inconsistent coverage cannot become
+authoritative. These validations have not run. Connection ownership, journal and
+durability settings, busy handling, migration/recovery, retention and pruning
+remain open; distribution compatibility remains unverified.
 
 The authorized next step is documentation only. No migrations, Rust code,
 executable tests, live launcher execution, or public push are authorized by this
-mapping approval. The existing 24 acceptance specifications remain unchanged.
+design approval. The existing 24 acceptance specifications remain unchanged and
+unexecuted.
