@@ -122,7 +122,11 @@ and a recorded decision.
 
 The [physical SQLite schema proposal](sqlite-schema-proposal.md) is engineering
 work for review, not an approved schema. UUID/timestamp/path encodings, minimum
-SQLite version and `STRICT`, tables, foreign keys, indexes, constraints, connection
+SQLite version and `STRICT` received the subsequent limited owner acceptance
+recorded in that proposal: lowercase UUID TEXT, UTC integer microseconds, path
+BLOBs, and STRICT/3.37.0 as schema baseline, with distribution compatibility still
+unverified. SHA-256 is accepted as algorithm; sealing is accepted in principle.
+The complete catalog, canonical protocols, exact guards/verification, connection
 ownership, durability, migrations, retention, and pruning remain proposed/open.
 
 The authorized next step is documentation only. No migrations, Rust code,

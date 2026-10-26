@@ -1,18 +1,36 @@
 # Physical SQLite schema proposal
 
 **Status: Proposed — independent owner review required.** Prepared 2026-10-26.
-The [logical mapping](persistence-mapping.md) is approved; every table, encoding,
-constraint, index, and database mechanism below is an engineering proposal.
+The [logical mapping](persistence-mapping.md) is approved. The owner has accepted
+the limited choices recorded below; the complete physical catalog and the revised
+mechanisms remain proposed.
 [A–D](architecture-options.md) approve SQLite and relational separation, not this
 physical design. This document contains a column/constraint catalog, not an SQL
 migration. No database has been created and no executable schema tests have run.
+
+## Physical review disposition
+
+The owner reviewed the uploaded proposal at `d951846`, not executed SQL or runtime
+behavior, and required revisions before catalog approval. The engineering origin
+of the design is unchanged; this is the subsequent owner-review record.
+
+| Choice | Owner disposition | Remaining boundary |
+| --- | --- | --- |
+| Canonical lowercase UUIDs as TEXT | Accepted | Format/generation enforcement and round-trip behavior are not executed validations. |
+| UTC integer microseconds | Accepted | Source time remains distinct from collection time; no ordering authority follows from a timestamp. |
+| Byte-preserving Linux paths as BLOB | Accepted | Path interpretation remains source/context-specific. |
+| STRICT and SQLite minimum 3.37.0 | Accepted as schema baseline | Distribution compatibility still needs verification; no packaging choice follows. |
+| SHA-256 content digests | Algorithm accepted | The canonical protocol specified in this revision awaits review. |
+| Deferred decision sealing | Accepted in principle | Exact guards, framing, and verification protocol await review and later executable validation. |
+| Immutable evidence and derived current state | Direction accepted | Does not approve every physical table/constraint or a retention policy. |
+| Complete physical catalog | Approval withheld pending revision | Manual lifecycle, coverage/diagnostics, repeatable key evidence, and digest details below are proposed corrections. |
 
 ## Review choices and alternatives
 
 | Choice needing review | Concrete recommendation | Alternative / practical consequence |
 | --- | --- | --- |
-| Encodings | Canonical lowercase UUID text, UTC integer microseconds, byte-preserving filesystem paths; typed, length-delimited digest inputs. | UUID BLOBs are smaller; text is easier to inspect. Exact digest byte serialization and scope-key framing still need specification before implementation, alongside round-trip validation. |
-| SQLite baseline | `STRICT` tables, requiring SQLite 3.37.0 or later. | Ordinary tables plus explicit storage-class checks preserve an older baseline but need a separate reviewed constraint expansion. The recommendation is a proposed distribution minimum, not a selected one. |
+| Encoding enforcement | Use the accepted UUID/text, timestamp/integer and path/BLOB choices with explicit checks; use the proposed canonical framing below. | UUID BLOBs and older-baseline non-STRICT tables remain historical alternatives, not current recommendations. Enforcement and framing still require review/validation. |
+| SQLite distribution support | Use the accepted STRICT/3.37.0 schema baseline. | Verify compatibility in the eventual distribution model rather than infer availability from the development workstation. |
 | Claim layout | A closed claim-subject registry and one finite typed-payload claim table, described below. | Separate tables per claim family reduce nullable payload fields but multiply common provenance and supersession structures. No unrestricted attribute/plugin schema is proposed. |
 | Source identity resolution | Preserve source-entry handles and reporter-local keys; derive equivalence only from supported identity claims. | Destructive canonicalization would require rewriting references and loses the original distinction. |
 | Current state | Derive from evidence and validated decisions; no authoritative current-state cache initially. | Materialized projections need explicit invalidation and consistency rules. |
@@ -45,16 +63,11 @@ are not UUIDs; preserve their source representation, with any canonicalization
 governed by the identity profile. UUID ordering is only a display/pair-normalization
 convention and never chronology or authority.
 
-Propose SHA-256 for the 32-byte artifact/request/result digests. This is a content
-comparison convention, not an authentication or source-authority mechanism.
-Digest input must be versioned, type-tagged and length-delimited, with explicit
-NULL representation. Unordered sets are sorted by table/field identity and stable
-keys solely for hashing. Request digests cover original request metadata/units;
-result digests cover the adapter's immutable logical result, not a second allocation
-of local IDs on redelivery. Decision seals cover metadata, claim-role links and
-edges, excluding the seal itself. Hashing SQLite file/page bytes is not proposed.
-The exact byte framing remains an encoding review item; no operational digest
-protocol is approved or implemented here.
+SHA-256 is accepted for the 32-byte content digests. The
+[canonical framing and verification protocol](#canonical-digest-framing-and-seal-verification)
+below is proposed, not approved or implemented. It defines precise byte encoding,
+record membership, and ordering. Digests verify only their specified records;
+they do not authenticate source facts or make a conclusion authoritative.
 
 Path values are BLOBs with no Unicode normalization or case folding. The core
 rejects NUL in Linux filesystem paths. Other byte locators are interpreted by an
@@ -91,7 +104,8 @@ not an approved indefinite-retention policy.
 | `identity_profiles` | `namespace T`, `version T`, `scope_kind T`, `key_role T`, `catalog_namespace T?`, `rule_id ID→rule_versions` | Unique `(namespace,version)` and `(id,namespace,scope_kind)`. Scope kind is global, account, instance, account_instance, or library; key role is catalog, reporter_local, or manual. Catalog role requires a catalog namespace; other roles require NULL. Rule-kind compatibility is validated by the core. |
 | `identity_scopes` | `namespace T`, `scope_kind T`, `resolution T`, `subject_context_id ID?→contexts`, `instance_context_id ID?→contexts`, `library_context_id ID?→contexts`, `provisional_token ID?` | Unique `(id,namespace,scope_kind)`. Shape checks and unique indexes below prevent missing-context collapse. |
 | `source_entries` | `catalog_namespace T?`, `created_evidence_id ID→evidence_records` | A namespace, when known, identifies the underlying catalog/store, not the discovery adapter. Unknown is NULL, not a fabricated Heroic storefront. |
-| `entry_keys` | `entry_id ID→source_entries`, `profile_id ID→identity_profiles`, `namespace T`, `scope_id ID→identity_scopes`, `scope_kind T`, `external_key T`, `evidence_id ID→evidence_records` | Unique `(namespace,scope_id,external_key)`. Composite FKs `(profile_id,namespace,scope_kind)` and `(scope_id,namespace,scope_kind)` prevent profile/scope namespace or shape mismatch. Keys are nonempty. |
+| `entry_keys` | `entry_id ID→source_entries`, `namespace T`, `scope_id ID→identity_scopes`, `scope_kind T`, `external_key T`, `created_evidence_id ID→evidence_records` | Unique `(namespace,scope_id,external_key)` and `(id,namespace,scope_kind)`. Composite FK `(scope_id,namespace,scope_kind)` preserves scope shape. The creation reference records origin, not all later supporting evidence. |
+| `entry_key_observations` | `key_id ID→entry_keys`, `reported_key T`, `profile_id ID→identity_profiles`, `namespace T`, `scope_kind T`, `evidence_id ID→evidence_records`, `collection_id ID→collections`, `coverage_part_id ID?→coverage_parts`, `item_key T`, `basis T` | Unique `(collection_id,item_key)` and `(id,collection_id)`; composite FKs `(key_id,namespace,scope_kind)`, `(profile_id,namespace,scope_kind)`, `(evidence_id,collection_id)`, and optional `(coverage_part_id,collection_id)` match the corresponding parent tuples. Each observation preserves the original reported key, exact identity profile and evidence. |
 
 An identified context key must identify an instance/subject within its declared
 namespace. A product name such as Steam or Heroic is not an instance key. Known
@@ -122,6 +136,27 @@ version. A change in identity semantics needs an explicit resolution plan/new
 namespace, not silent rewriting of existing keys. New observations can reference
 a newer interpretation while retaining the same established key.
 
+The first observed key creates one stable `entry_keys` row and one
+`entry_key_observations` row atomically. Every genuine subsequent observation adds
+another observation referencing that same key, including the new profile/version,
+evidence, basis, collection, and coverage attribution. No replacement of creation
+evidence or profile is needed. Redelivery of the same item reuses its existing
+observation after exact content comparison; it does not renew any timestamp.
+External key observations require a coverage part; manual input may be an explicit
+point assertion. Origin and part validity are core checks.
+
+An observation records the reported mapping, not unconditional endorsement of it.
+The core validates supported profile semantics and source authority. Conflicting
+or unsupported interpretations remain diagnosed/disputed/unknown, with all prior
+observations preserved. A rejected interpretation can be recorded as a diagnostic
+against its evidence instead of inventing positive support. A newer profile does
+not become authoritative merely because it is newer. Reinterpreting closed old
+evidence still requires a separately specified explicit operation; fresh collection
+under a new profile does not rewrite the old observation.
+Where a profile defines canonicalization, verify that its reported_key maps to
+the persistent scoped external_key and retain the exact reported form. Do not
+replace older raw keys or silently apply a different canonicalization rule.
+
 The provisional Heroic reporter profile is not an approved seed definition. Its
 key role remains reporter_local. Independently justified storefront identity uses
 a separate supported catalog profile; it does not promote Heroic into storefront
@@ -144,6 +179,38 @@ Context roles, entitlement summary-key semantics, installation continuity, and
 same-source identity compatibility are core checks, not consequences of a bare
 foreign key. Target keys are immutable handoff identifiers, not imported shell
 templates. No optional artwork or other metadata is required by any target FK.
+
+### Manual-entry lifecycle
+
+Add the finite claim dimension `manual_visibility`, targeting one source-entry
+handle through the existing `claim_subjects.entry_id`. Its observed value is
+visible or hidden; unknown has the normal explicit reason and NULL payload. It
+is an organizational claim, not a negative entitlement/installation claim.
+
+The core requires a supported manual-key observation for that entry in the same
+library context, a user_assertion evidence origin, and authority namespace
+`koine:manual` with that library context. A Steam/Heroic scan cannot author this
+claim. The existing subject/dimension/authority uniqueness isolates each library.
+The database stores the exact references; the core proves manual origin and scope.
+
+Manual creation includes an observed visible claim with the title assertion.
+Removal appends a hidden claim and a justified supersession decision in the same
+manual-operation transaction. The decision cites the affected prior visibility
+claim and explicit user action as its causal basis, not collection timestamp
+precedence. Restoration is another explicit visible claim with the same safeguards.
+Concurrent unordered visibility assertions remain disputed. Missing visibility
+evidence means unknown, never inferred removal; no expiry policy is introduced.
+
+Active-library reconstruction excludes only the applicable hidden manual handle
+in its library context. It preserves its source keys, title/access claims,
+organizational links, targets, and historical launch evidence. It does not delete
+the game or hide a Steam/Heroic entry with a matching title, and does not propagate
+hidden through game grouping or source equivalence. A game with another active
+entry remains present through that entry. Unlinking and removal remain independent;
+removal does not revoke access, uninstall, stop a game, or purge evidence.
+
+This supplies the persistent removal semantics required by
+`manual-title-without-access`. Retention and physical deletion remain open.
 
 Context-role checks are explicit core obligations: subject references have kind
 subject; manager/launcher references manager; machine references machine; library
@@ -205,12 +272,72 @@ the supported catalog-key semantics and evidence.
 
 | Table | Columns in addition to `id` | Relational constraints |
 | --- | --- | --- |
-| `authority_scopes` | `authority_namespace T`, `scope_key B`, `subject_context_id ID?→contexts`, `manager_context_id ID?→contexts`, `machine_context_id ID?→contexts`, `provisional_token ID?` | Unique `(authority_namespace,scope_key)`. Proposed key encoding is a length-prefixed tuple of role-qualified context UUIDs plus a provisional token where needed. The core validates the encoding against the columns and requires isolation of unknown required contexts. |
-| `collections` | `kind T`, `reporter T`, `reporter_version T`, `reporter_context_id ID→contexts`, `interpretation_rule_id ID→rule_versions`, `started_at U`, `request_digest B` | Kind discovery or manual; digest length 32. Reporter is separate from claim authority. Digest covers the registered request and all requested units; it does not prove source authenticity. |
-| `requested_units` | `collection_id ID→collections`, `unit_key T`, `authority_scope_id ID→authority_scopes`, `dimension T`, `root_context_id ID?→contexts`, `selector B?`, `selector_rule_id ID?→rule_versions` | Unique `(collection_id,unit_key)` and `(id,collection_id,dimension,authority_scope_id)`. Selector and selector-rule reference are both present or both NULL. The core validates the selector, full request membership, and dimension. No credentials in selectors. |
-| `coverage_results` | `unit_id ID→requested_units`, `collection_id ID→collections`, `dimension T`, `authority_scope_id ID→authority_scopes`, `outcome T`, `reason T?`, `inspected_locator B?` | Unique `unit_id` and `(id,collection_id,outcome,dimension,authority_scope_id)`. Composite FK `(unit_id,collection_id,dimension,authority_scope_id)` references the corresponding requested-unit tuple. Outcome complete, partial, failed, or inconclusive; non-complete requires a reason. |
-| `collection_closures` | **PK `collection_id ID→collections`**, `outcome T`, `finished_at U`, `reason T?`, `result_digest B` | Outcome uses the same four values; non-complete requires a reason; digest length 32. Core validates aggregate outcome against the original request and actual results. |
+| `authority_scopes` | `authority_namespace T`, `scope_key B`, `subject_context_id ID?→contexts`, `manager_context_id ID?→contexts`, `machine_context_id ID?→contexts`, `library_context_id ID?→contexts`, `provisional_token ID?` | Unique `(authority_namespace,scope_key)`. The canonical framing section defines the proposed role-qualified scope key. The core validates the encoding against the columns and isolates unknown required contexts. Manual visibility requires a library context. |
+| `collections` | `kind T`, `reporter T`, `reporter_version T`, `reporter_context_id ID→contexts`, `interpretation_rule_id ID→rule_versions`, `started_at U`, `request_protocol T`, `request_digest B` | Kind discovery or manual; request protocol koine.request.v1; digest length 32. Reporter is separate from claim authority. Digest covers registered request metadata/units, not source authenticity. |
+| `requested_units` | `collection_id ID→collections`, `unit_key T`, `authority_scope_id ID→authority_scopes`, `dimension T`, `root_context_id ID?→contexts`, `selector B?`, `selector_rule_id ID?→rule_versions` | Unique `(collection_id,unit_key)`, `(id,collection_id)` and `(id,collection_id,dimension,authority_scope_id)`. Selector and selector-rule reference are both present or both NULL. The core validates the selector, full request membership, and dimension. No credentials in selectors. |
+| `coverage_results` | `unit_id ID→requested_units`, `collection_id ID→collections`, `dimension T`, `authority_scope_id ID→authority_scopes`, `outcome T`, `reason T?` | Unique `unit_id` and `(id,collection_id,unit_id,dimension,authority_scope_id)`. Composite FK `(unit_id,collection_id,dimension,authority_scope_id)` references the corresponding requested-unit tuple. Outcome complete, partial, failed, or inconclusive; non-complete requires a reason. Exact extents are in coverage_parts. |
+| `coverage_parts` | `coverage_id ID→coverage_results`, `collection_id ID→collections`, `unit_id ID→requested_units`, `dimension T`, `authority_scope_id ID→authority_scopes`, `part_key T`, `parent_part_id ID?→coverage_parts`, `selector_kind T`, `selector B?`, `selector_rule_id ID?→rule_versions`, `inspection T`, `outcome T`, `reason T?` | Unique `(coverage_id,part_key)`, `(id,collection_id)`, `(id,collection_id,dimension,authority_scope_id)`, `(id,coverage_id,collection_id,unit_id,dimension,authority_scope_id)`, and `(id,collection_id,outcome,dimension,authority_scope_id)`. Composite coverage FK matches its full unique tuple. Optional parent FK includes coverage/collection/unit/dimension/authority; self-parent rejected. A partial unique index on coverage_id where parent_part_id is NULL permits at most one root. |
+| `collection_closures` | **PK `collection_id ID→collections`**, `outcome T`, `finished_at U`, `reason T?`, `result_protocol T`, `result_digest B` | Outcome uses the same four values; non-complete requires a reason; result protocol koine.result.v1; digest length 32. Core validates aggregate outcome against the original request and actual results. |
 | `evidence_records` | `collection_id ID→collections`, `origin_kind T`, `origin_namespace T`, `locator_kind T`, `locator B?`, `collected_at U`, `source_effective_at U?`, `source_revision T?`, `valid_until U?`, `interpretation_rule_id ID→rule_versions`, `item_key T` | Unique `(collection_id,item_key)` and `(id,collection_id)`. Origin external or user_assertion. Locator kind path, opaque, or unavailable; unavailable requires NULL, others non-null. A user assertion is not storefront proof. |
+| `diagnostics` | `collection_id ID→collections`, `item_key T`, `target_kind T`, `unit_id ID?→requested_units`, `coverage_part_id ID?→coverage_parts`, `evidence_id ID?→evidence_records`, `key_observation_id ID?→entry_key_observations`, `claim_id ID?→claims`, `severity T`, `code T`, `message T`, `affected_dimension T?`, `recorded_at U` | Unique `(collection_id,item_key)`. Target kind collection, unit, coverage_part, evidence, key_observation, or claim. Collection target has all optional targets NULL; other kinds require exactly their matching target. Composite `(target_id,collection_id)` FKs prevent cross-collection attribution. Severity info, warning, or error. |
+
+### Bounded coverage and diagnostic attribution
+
+Every coverage result must have a root part representing exactly its registered
+requested unit, with selector_kind=whole_unit and NULL selector/rule. The core
+requires that root and matching root/result outcomes before closure; the unique
+index enforces at most one root. Non-root parts require selector_kind=bounded or
+residual, non-null selector bytes and selector-rule reference. Parent FKs preserve
+scope. A proposed insert guard rejects missing parents, self-parenting, a parent
+chain reaching the new ID, or an already cyclic parent chain; core validation also
+requires acyclicity on closure/read. An immediate FK by itself is not a cycle proof.
+Children partition the parent's scope,
+not its request timestamp or order of discovery.
+
+The proposed v1 selector is exactly E(list), without an envelope, using the framing
+primitives defined below: path selectors are [path, path-bytes, item-or-subtree]; key selectors
+are [keys, namespace, identity-scope-UUID, ordered-key-list]; residual selectors are
+[remainder, parent-part-UUID, ordered-excluded-sibling-UUID-list]. The first value
+is a literal text discriminator. Keys and exclusions have no duplicates and are
+sorted by their encoded scalar bytes; item-or-subtree is literal text item or
+subtree. Source-specific membership and whether a
+subtree/key set is exhaustive require the cited supported selector/capability rule.
+Selector bytes preserve actual extents, not a vague label such as "some files".
+
+Inspection is inspected, uninspected, mixed, or unknown. Complete requires
+inspected. Uninspected permits only failed/inconclusive; mixed requires children
+and a non-complete outcome; unknown also requires a non-complete outcome.
+Non-complete outcomes require a reason. An inspected part can still be partial or
+inconclusive because inspection does not guarantee successful interpretation.
+Outcome validity still follows the discovery contract: usable surviving work makes
+the aggregate partial rather than failed, regardless of how much inspection occurred.
+
+The core validates containment, disjointness and exhaustiveness for children.
+If the residual extent cannot be enumerated, record an explicit residual selector
+excluding the known bounded children, with unknown inspection and inconclusive
+outcome. Never omit the remainder and call the parent complete. If supported rules
+cannot establish a bounded part's extent, it cannot justify an omission negative.
+Checks cover the whole relevant part tree, including source changes during reading.
+
+For example, a partial root can contain an inspected/complete subtree A and an
+uninspected/inconclusive subtree B with a permission diagnostic. Valid observations
+from A remain usable. An exhaustive-omission proof can cite A only when its source
+semantics justify it, and cannot extend to B or the partial root. If more unenumerated
+scope may exist, a residual part records that gap. No real Steam directory format
+or exhaustive capability is established by this synthetic example.
+
+Diagnostics are repeatable rows: several codes/causes can affect the same target.
+An observation-level issue targets its evidence record; a more specific claim issue
+can target the claim, and an identity-interpretation issue can target the particular
+key observation. A part identifies its unit and collection through its FKs.
+Collection-wide failures target the collection. Use separate attributed rows when
+one cause affects multiple targets. Codes are stable categories and messages are
+sanitized explanations, not raw logs, credentials, or invented negative facts.
+Severity alone never establishes completeness; the core must account for every
+relevant gap when validating coverage. Unknown source records can retain an
+evidence-level diagnostic without a fabricated valid claim.
+If a diagnostic's relevance or a selector rule is unsupported/unknown, withhold
+the affected negative conclusion rather than assume the gap is harmless.
 
 Evidence can support several propositions, but each claim has its own basis and
 value. No raw launcher configuration, credential, or complete source payload is
@@ -220,18 +347,22 @@ age remains separate from collection time; unknown source age stays unknown.
 Register a collection and its original requested units together. Final application
 of evidence, coverage, claims, decisions, and the closure is a separate atomic
 transaction. Insert the closure last. Proposed insert guards reject new units,
-results, evidence, claims, negative justifications, and collection-linked decisions
+results, parts, diagnostics, key observations, evidence, claims, negative
+justifications, and collection-linked decisions
 after closure. A request digest is checked in the core so registration cannot be
 silently shrunk.
 No closure means pending/incomplete operation, not an empty authoritative result.
 Cold recovery reports inconclusive collection progress with prior library evidence
 intact; it does not assert that a pending source operation completed.
 
-Idempotency checks compare the same collection/result identity and immutable
-content, including original timestamps. A different payload under the same identity
-is rejected/diagnosed. Do not globally deduplicate equal payloads: a genuine later
-observation can provide different freshness evidence. None of the digests is used
-as an authority or ordering proof.
+Idempotency checks compare stable unit/part/item keys and immutable logical
+content, including original times and interpretation versions, against the closed
+stored result. Return its existing local IDs instead of allocating a second set.
+A different payload under the same delivery identity is rejected/diagnosed outside
+the closed record. The result digest seals the stored result bundle, not a fresh
+allocation of IDs on replay. Do not globally deduplicate equal payloads: a genuine
+later observation can provide different freshness evidence. No digest supplies
+source authority or ordering proof.
 
 ## Claim subjects and typed values
 
@@ -254,10 +385,15 @@ validate all other authority/subject context compatibility.
 `authority_scope_id ID→authority_scopes`, `evidence_id ID→evidence_records`,
 `collection_id ID→collections`, `knowledge T`, `value_text T?`, `value_bytes B?`,
 `access_kind T?`, `reason T?`, `basis_code T`, and
-`negative_justification_id ID?→negative_justifications`.
+`negative_justification_id ID?→negative_justifications`, plus
+`coverage_part_id ID?→coverage_parts`.
 
 Composite FKs match subject `(id,dimension,authority_scope_id)` and evidence
-`(id,collection_id)`. Unique parent keys are `(id,dimension)` and
+`(id,collection_id)`. An optional part reference matches
+`(id,collection_id,dimension,authority_scope_id)`. External claims require the
+part covering their dimension; manual point assertions can omit it. Origin,
+membership and interpretation validity are core checks. Unique parent keys are
+`(id,collection_id)`, `(id,dimension)` and
 `(id,subject_id,dimension,authority_scope_id)`. Knowledge is observed,
 confirmed_negative, or unknown. Disputed and stale are derived conclusions, not
 new source assertions. The following CHECK branches fully define allowed payloads:
@@ -267,6 +403,7 @@ new source assertions. The following CHECK branches fully define allowed payload
 | game_label | game | Nonempty display label | Not allowed. |
 | entry_title | entry | Nonempty reported title | Not allowed. |
 | entry_edition | entry | Nonempty reported edition | Not allowed. |
+| manual_visibility | entry | visible or hidden | Not allowed; hidden is organizational removal, not external revocation. |
 | access | entitlement | accessible | inaccessible |
 | presence | installation | present | absent |
 | completion | installation | complete or incomplete | Not allowed; incomplete is an observed fact. |
@@ -292,11 +429,11 @@ supersede prior positive evidence merely because its collection is newer.
 
 | Table | Columns in addition to `id` | Relational constraints |
 | --- | --- | --- |
-| `negative_justifications` | `subject_id ID→claim_subjects`, `dimension T`, `authority_scope_id ID→authority_scopes`, `evidence_id ID→evidence_records`, `collection_id ID→collections`, `kind T`, `coverage_id ID?→coverage_results`, `required_outcome T?`, `capability_rule_id ID→rule_versions`, `basis T` | Composite FKs match subject scope and evidence collection. Unique `(id,subject_id,dimension,authority_scope_id,collection_id)`. Kind explicit or exhaustive_omission. Explicit has NULL coverage/outcome; omission requires coverage, outcome literal complete, and composite FK `(coverage_id,collection_id,required_outcome,dimension,authority_scope_id)` to the corresponding coverage tuple. |
+| `negative_justifications` | `subject_id ID→claim_subjects`, `dimension T`, `authority_scope_id ID→authority_scopes`, `evidence_id ID→evidence_records`, `collection_id ID→collections`, `kind T`, `coverage_part_id ID?→coverage_parts`, `required_outcome T?`, `capability_rule_id ID→rule_versions`, `basis T` | Composite FKs match subject scope and evidence collection. Unique `(id,subject_id,dimension,authority_scope_id,collection_id)`. Kind explicit or exhaustive_omission. Explicit has NULL part/outcome; omission requires a part, outcome literal complete, and composite FK `(coverage_part_id,collection_id,required_outcome,dimension,authority_scope_id)` to the corresponding coverage-part tuple. |
 | `reconciliation_decisions` | `kind T`, `rule_id ID→rule_versions`, `ordering_rule_id ID?→rule_versions`, `assessed_at U`, `reason T`, `collection_id ID?→collections` | Kind supersession, supersession_rejected, or dispute. Supersession requires an ordering-rule reference. Deferred FK from `id` to `decision_seals.decision_id` requires completion by commit. Rule meaning and scope compatibility are core checks. |
 | `decision_claims` | **PK `(decision_id,claim_id,role)`**, `decision_id ID→reconciliation_decisions`, `claim_id ID→claims`, `role T` | Role older, replacement, identity_support, ordering_support, negative_support, or conflicting. A role alone is not proof that the claim establishes it. |
 | `supersessions` | **PK `(older_claim_id,replacement_claim_id)`**, `older_claim_id ID→claims`, `replacement_claim_id ID→claims`, `dimension T`, `decision_id ID→reconciliation_decisions` | Different endpoints; composite FKs `(older_claim_id,dimension)` and `(replacement_claim_id,dimension)` reference claim `(id,dimension)`. Multiple edges can share a replacement. |
-| `decision_seals` | **PK `decision_id ID→reconciliation_decisions`**, `content_digest B` | Digest length 32. Seals the decision's metadata, claim-role links and edges. Insert after those records, within the same transaction. |
+| `decision_seals` | **PK `decision_id ID→reconciliation_decisions`**, `protocol T`, `content_digest B` | Protocol koine.decision.v1; digest length 32. Seals the decision's metadata, claim-role links and edges using the canonical protocol below. Insert after those records, within the same transaction. |
 
 Claims additionally have the composite FK
 `(negative_justification_id,subject_id,dimension,authority_scope_id,collection_id)`
@@ -310,6 +447,10 @@ a recorded complete coverage flag. The core must establish actual exhaustive
 source semantics, precise coverage membership, permission/filter/parse consistency,
 and authority. A local installation scan cannot justify a negative access claim
 regardless of SQL validity.
+An omission justification cites a complete bounded part, not the incomplete
+aggregate. Its conclusion is restricted to that part's proven extent. The core
+also validates the aggregate/part tree and any relevant diagnostics before allowing
+that proof; a complete flag cannot conceal a gap affecting the same subject.
 
 Before inserting a supersession, the core proves every approved validity condition
 and includes the cited proof claims. Where distinct handles are involved, it must
@@ -336,6 +477,175 @@ they do not reopen a closed source result. Emitting newly interpreted claims fro
 closed evidence needs a separately specified reinterpretation operation. That
 operation is not included here, and must never bypass the closure guard or pretend
 that old evidence was freshly collected.
+
+## Canonical digest framing and seal verification
+
+**Protocol status: Proposed for review.** SHA-256 is accepted; the following exact
+serialization, record manifests, and verification behavior are not yet approved.
+There are no executable examples, computed digests, or conformance results here.
+
+### Byte grammar
+
+A framed value consists of the four ASCII bytes KOIN (hex 4b 4f 49 4e), the two
+bytes 00 01 identifying framing version 1, E(protocol), then E(payload). There is
+no padding, separator, terminal newline, BOM, or trailing data. Protocol is the
+exact ASCII text named below. E recursively encodes one typed value:
+
+| Value | Exact bytes emitted by E |
+| --- | --- |
+| NULL | One byte 00 and no payload. |
+| INTEGER | One byte 01, then exactly eight bytes of signed two's-complement integer, most significant byte first. Range is minus 2^63 through 2^63 minus 1; timestamps use this same representation in their accepted microsecond unit. |
+| TEXT | One byte 02, then an unsigned eight-byte big-endian UTF-8 byte length, then exactly those UTF-8 bytes. Strict UTF-8; no normalization, trimming, case folding, newline conversion, or escaping. |
+| BLOB | One byte 03, then an unsigned eight-byte big-endian byte length, then the exact bytes. Never decode a BLOB as text. |
+| List | One byte 04, then an unsigned eight-byte big-endian element count, then E of each element in list order. |
+
+Unused tags, REAL values, out-of-range integers/counts/lengths, invalid UTF-8,
+truncation, and trailing bytes are invalid. Integers have no variable-length form.
+NULL, empty TEXT, empty BLOB, and an empty list have different encodings; the
+catalog's nonempty/shape checks can independently forbid them in particular fields.
+UUIDs are encoded as their canonical stored TEXT, not converted to 16-byte values.
+TEXT containing an otherwise allowed character is encoded exactly; path BLOBs
+retain the separate Linux-path validation rules.
+
+For record bundles, payload is an ordered list of table records. Each table record
+is [table-name TEXT, ordered-column-name list, ordered-row list]. Each row is a
+list of typed values matching exactly those columns. All listed tables appear,
+including empty child sets. No extra or omitted columns are permitted. Row lists
+are sorted by their primary-key tuples: compare E of each key component as unsigned
+byte strings, lexicographically, with a shorter equal-prefix string first. Duplicate
+primary-key tuples are invalid, not silently deduplicated. This sort grants no
+factual authority to a key. The following manifests freeze table order and columns.
+
+### Decision manifest: koine.decision.v1
+
+For decision D, include exactly its metadata row, every decision_claims row with
+decision_id D, and every supersessions row with decision_id D, in this table order:
+
+| Table | Ordered columns | Primary-key sort |
+| --- | --- | --- |
+| reconciliation_decisions | id, kind, rule_id, ordering_rule_id, assessed_at, reason, collection_id | id |
+| decision_claims | decision_id, claim_id, role | decision_id, claim_id, role |
+| supersessions | older_claim_id, replacement_claim_id, dimension, decision_id | older_claim_id, replacement_claim_id |
+
+There must be exactly one metadata row. Supersession decisions require at least
+one edge and matching older/replacement role links for every edge, plus the actual
+supported proof required by the logical contract. Rejected-supersession and dispute
+decisions have no supersession edges; a dispute requires at least two conflicting
+claim links. Counts and digests do not replace semantic validation.
+
+The seal is the raw 32-byte SHA-256 digest of this complete framed value. Store
+protocol=koine.decision.v1 and those bytes in decision_seals. Do not hash hexadecimal
+text, rowid, query order, SQL text, the seal row, or the enclosing collection digest.
+Referenced claim/rule/evidence bodies are not recursively hashed by this manifest.
+Their references and semantics must be validated independently. A matching seal
+does not detect every alteration elsewhere in a database and is not a signature.
+
+### Request manifest: koine.request.v1
+
+For collection C, include its one collections row and all registered requested_units
+rows with collection_id C, in the following order. Request registration fixes
+their IDs and content. The request_digest column is excluded to avoid self-hashing.
+
+| Table | Ordered columns | Primary-key sort |
+| --- | --- | --- |
+| collections | id, kind, reporter, reporter_version, reporter_context_id, interpretation_rule_id, started_at, request_protocol | id |
+| requested_units | id, collection_id, unit_key, authority_scope_id, dimension, root_context_id, selector, selector_rule_id | id |
+
+Hash the framed value and store its raw digest with request_protocol=koine.request.v1.
+The core checks registered membership against this digest before final reconciliation.
+It still proves scope meaning and request coverage independently.
+
+### Result manifest: koine.result.v1
+
+The result digest now seals the **persisted result bundle** for collection C.
+It is not a universal fingerprint of adapter input independent of assigned local
+IDs. Replay compares original stable item/part/unit keys and logical payloads,
+including evidence times and profile versions, and returns stored IDs. It must
+not allocate another set of IDs and compare a different byte stream.
+
+Select every row whose collection_id is C for the directly collection-scoped
+tables below. For decision_claims, supersessions and decision_seals, select rows
+whose referenced reconciliation_decisions.collection_id is C. Include the one
+closure row for C, excluding its result_digest. Use exactly this table order:
+
+| Table | Ordered columns | Primary-key sort |
+| --- | --- | --- |
+| coverage_results | id, unit_id, collection_id, dimension, authority_scope_id, outcome, reason | id |
+| coverage_parts | id, coverage_id, collection_id, unit_id, dimension, authority_scope_id, part_key, parent_part_id, selector_kind, selector, selector_rule_id, inspection, outcome, reason | id |
+| evidence_records | id, collection_id, origin_kind, origin_namespace, locator_kind, locator, collected_at, source_effective_at, source_revision, valid_until, interpretation_rule_id, item_key | id |
+| entry_key_observations | id, key_id, reported_key, profile_id, namespace, scope_kind, evidence_id, collection_id, coverage_part_id, item_key, basis | id |
+| claims | id, subject_id, dimension, authority_scope_id, evidence_id, collection_id, knowledge, value_text, value_bytes, access_kind, reason, basis_code, negative_justification_id, coverage_part_id | id |
+| negative_justifications | id, subject_id, dimension, authority_scope_id, evidence_id, collection_id, kind, coverage_part_id, required_outcome, capability_rule_id, basis | id |
+| diagnostics | id, collection_id, item_key, target_kind, unit_id, coverage_part_id, evidence_id, key_observation_id, claim_id, severity, code, message, affected_dimension, recorded_at | id |
+| reconciliation_decisions | id, kind, rule_id, ordering_rule_id, assessed_at, reason, collection_id | id |
+| decision_claims | decision_id, claim_id, role | decision_id, claim_id, role |
+| supersessions | older_claim_id, replacement_claim_id, dimension, decision_id | older_claim_id, replacement_claim_id |
+| decision_seals | decision_id, protocol, content_digest | decision_id |
+| collection_closures | collection_id, outcome, finished_at, reason, result_protocol | collection_id |
+
+Compute the digest before inserting the closure: supply the intended closure values
+as the final row of the manifest, then insert that closure and its raw digest in
+the same transaction. Request rows are checked with their separate request digest.
+Shared identity/context/profile rows are referenced, not recursively included;
+their validity is independently checked. The result manifest does not hash launch
+attempts or standalone decisions, which are separate operations.
+
+### Scope-key framing and protocol evolution
+
+Authority scope_key is the complete framed value, not its digest, with protocol
+koine.authority-scope.v1 and payload [authority_namespace, subject_context_id,
+manager_context_id, machine_context_id, library_context_id, provisional_token],
+using explicit NULLs for absent roles. Compare it with the corresponding columns.
+Provisional tokens isolate unknown required contexts; equivalent contexts are
+resolved through evidence, never by rewriting key bytes.
+
+Rule artifact digests hash the exact bytes of the identified supported artifact,
+without this envelope; they are distinct from request/result/decision manifests.
+No executable rule or hashing extension is stored in SQLite.
+
+The frame and each manifest have explicit versions. The protocol name stored with
+a digest must select the exact manifest above; it cannot select the reader's latest
+column list. A covered table/column change needs a new reviewed manifest/version.
+Old records remain associated with their original version, and a reader must retain
+that manifest to verify them. Unknown versions produce an unsupported-protocol
+diagnostic; there is no guessed fallback or silent resealing.
+Request/result protocol columns must match the protocol in their envelope; the
+decision seal's protocol must match the selected decision envelope. A disagreement
+is invalid, not a reason to try another manifest until a digest happens to match.
+
+### Decision-seal write and read protocol
+
+1. In one write transaction, insert decision metadata, all claim-role links and
+   edges. Validate the full logical proof, references, scope, and acyclicity.
+   The deferred decision-to-seal FK temporarily permits the missing seal.
+2. Read exactly the decision manifest from that transaction's consistent view,
+   validate types/shapes/membership, frame the values, and compute SHA-256 in the
+   future core. Insert its protocol and raw digest as the seal. The seal's immediate
+   FK requires the decision already to exist. Guards reject further additions to
+   sealed decision children and updates/deletes of its records. The core may create
+   a seal only after validating unsealed, complete, semantically valid content.
+3. Commit only after every decision has its seal. Deferred FK enforcement proves
+   seal presence, not correct hash computation. A collection closure, when applicable,
+   follows all decision seals and includes them in its result manifest.
+4. On reading a decision for reconstruction, take one consistent snapshot, require
+   a supported protocol and exactly one seal, reconstruct the exact metadata/link/
+   edge sets, recompute the framed digest, and compare all 32 stored bytes. Also
+   validate referenced evidence, rules, authority, ordering and graph integrity.
+   Digest equality is necessary for this proposed protocol but insufficient for
+   factual validity.
+5. A missing seal, invalid shape, mismatch, unsupported protocol, or invalid proof
+   produces a scoped integrity/uncertainty diagnostic. Do not apply its supersession
+   as authoritative, choose a row-order winner, mutate the digest, or replay a
+   launch. Preserve records for review; repair mechanics remain open.
+
+There is no assumed SQLite SHA-256 function. Guards reject structural mutation;
+the future core performs canonical hashing and semantic verification. The prose
+guard obligations and verification protocol are proposed for review here. SQL
+definitions and executable validation are later implementation work requiring
+separate authorization; none is provided here. Collection-time diagnostics are
+sealed with their result; later read
+diagnostics are returned to the caller and do not append to/reseal a closed bundle.
+Persistent post-closure repair/audit operations are not selected here.
 
 ## Attempt-scoped handoff and process evidence
 
@@ -395,7 +705,7 @@ factual precedence. No full-text/artwork index or performance claim is included.
 
 The proposed guards are: reject update/delete on immutable catalog records; reject
 new collection content after closure; reject additions to sealed decisions; and
-reject cyclic supersession insertion.
+reject cyclic supersession insertion and invalid/cyclic coverage parenting.
 They abort rather than mutate the row being checked. Closing a collection after
 adding its content in one transaction supports the collection guards. Decisions
 use the one deliberately deferred completion reference specified above.
@@ -406,9 +716,9 @@ Startup/read validation must not assume constraints prove the file is uncorrupte
 
 | Operation | Proposed atomic boundary / recovery behavior |
 | --- | --- |
-| Manual creation/grouping | Identities, user-assertion evidence, and claims together; revision preserves prior evidence. |
+| Manual creation/removal/restoration/grouping | Identities as needed, user-assertion evidence, visibility/grouping claims, justified supersession and decision seals together. Hidden manual records preserve their history and do not hide matching storefront entries. |
 | Collection registration | Collection and original requested-unit records together. No library conclusions are replaced. |
-| Bounded result application | Independently valid evidence/claims, coverage, negative proofs, decisions, edges, and closure together. Failed/partial outcomes retain prior claims in gaps. |
+| Bounded result application | Independently valid evidence, repeated key observations, claims, coverage parts, diagnostics, negative proofs, decisions, edges, seals and closure together. Failed/partial outcomes retain prior claims in gaps. |
 | Launch intent | Attempt row committed before external operation. If this fails, no external handoff is issued. |
 | Handoff result | Persist actual result separately. If persistence fails after submission, report uncertainty about durable recovery, not that submission never happened. |
 | Process observation | Observation and its identity/continuity references together, independently of handoff. |
@@ -468,8 +778,8 @@ authorized or represented as complete by this document.
 Primary documentation inspected for this proposal:
 
 - [STRICT tables](https://www.sqlite.org/stricttables.html): support begins at
-  3.37.0 and permitted type names are restricted. This motivates the proposed
-  baseline and explicit type notation; it does not select a distribution minimum.
+  3.37.0 and permitted type names are restricted. The owner accepted this schema
+  baseline; compatibility in the eventual distribution model remains unverified.
 - [CREATE TABLE](https://www.sqlite.org/lang_createtable.html): NULL passes a CHECK
   and NULLs are distinct for uniqueness; explicitly constrain null shape and keys.
 - [Foreign keys](https://www.sqlite.org/foreignkeys.html): enable and verify them
@@ -482,9 +792,19 @@ Primary documentation inspected for this proposal:
   and single-writer behavior do not determine application connection ownership or
   make an external launcher action atomic with storage.
 
-The review gate is approval/revision of this physical catalog and its proposed
-mechanisms, with explicit decisions on encodings and SQLite baseline. Connection,
-durability, migration/recovery and retention details remain open as listed above.
+The review gate is approval/revision of the corrected physical catalog, canonical
+protocols, exact guard behavior, and seal verification. Accepted encodings, SHA-256,
+and schema baseline are recorded above, not reopened as unanswered choices.
+Connection ownership, durability, migration/recovery and retention remain open.
 No current ownership, integration success, executable correctness, or publication
 clearance follows from documenting the schema. Implementation needs separate
 authorization after the relevant design decisions are settled.
+
+## Revision record
+
+- Initial catalog: local commit `d951846`, Proposed; no executable validation.
+- Owner physical review: based on the uploaded proposal, accepted the limited
+  encoding/algorithm/baseline choices above and deferred sealing in principle;
+  withheld complete catalog approval for three modeling gaps and canonical digest
+  details. This revision proposes the corrections. It records no SQL/runtime
+  success, distribution compatibility, implementation authorization, or publication.

@@ -33,8 +33,8 @@ The following distinctions apply throughout these documents:
 | Open question | Unselected architecture or unverified external behavior. Must not be treated as an accepted decision. |
 
 `Must` denotes a contract obligation. Logical identifiers and state names make
-cases precise; their encoding, types, storage layout, and UI wording remain
-implementation details. Contract elaborations include scoped keys, per-claim
+cases precise; their meaning is independent of physical encoding and UI wording.
+Accepted physical choices are recorded below. Contract elaborations include scoped keys, per-claim
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
@@ -59,10 +59,18 @@ from the discussion. All four review conditions are satisfied as behavioral
 obligations. Heroic's reporter-local identity profile remains provisional; manager
 authority is distinct from storefront identity authority. The
 [physical schema proposal](sqlite-schema-proposal.md) remains the next independent
-approval gate. Its recommendations are not accepted decisions.
+approval gate. Its complete catalog and revised mechanisms await approval; limited
+accepted choices are recorded below.
 
-Encodings, minimum SQLite version and `STRICT`, exact physical schema, foreign
-keys/indexes/constraints, migration strategy, connection model, durability,
+The owner subsequently accepted lowercase UUID TEXT, UTC integer microseconds,
+path BLOBs, SHA-256 as content-digest algorithm, and STRICT/3.37.0 as schema baseline
+subject to distribution verification. Deferred sealing is accepted in principle;
+its canonical protocol and exact guards/verification still need review. The
+[physical review disposition](sqlite-schema-proposal.md#physical-review-disposition)
+defines the limits. The complete physical catalog remains Proposed.
+
+Exact physical schema, foreign keys/indexes/constraints, canonical digest protocols,
+migration strategy, connection model, durability,
 retention policy, packaging/distribution, ownership authentication, specific Steam/Heroic transports,
 synchronization scheduling, process identity mechanisms, and detailed UI design
 remain open. No expiry interval or automatic matching algorithm is selected.
