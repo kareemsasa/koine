@@ -14,6 +14,10 @@ game configuration and execution.
 4. [Synthetic acceptance cases](acceptance-cases.md): Given/When/Then specifications.
 5. [External evidence and integration boundaries](integration-evidence.md): public
    references, their limits, and work still requiring integration verification.
+6. [Approved logical-to-relational mapping](persistence-mapping.md): scoped identity,
+   supersession validity, launch recovery, and deterministic reconstruction.
+7. [Physical SQLite schema proposal](sqlite-schema-proposal.md): proposed columns,
+   relational constraints, indexes, guards, and remaining review decisions.
 
 ## Authority and status
 
@@ -34,10 +38,11 @@ implementation details. Contract elaborations include scoped keys, per-claim
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
-The repository remains documentation only. A–D have architectural approval, but
-this review authorizes only recording the decisions. No adapter is implemented,
-no real Steam/Heroic verification is recorded, and the 24 synthetic acceptance
-cases remain specifications rather than executed tests.
+The repository remains documentation only. A–D and the clarified logical mapping
+have approval within their recorded boundaries. Authorized work includes preparing
+the physical schema proposal; the schema is not approved and implementation is
+not authorized. No adapter is implemented, no real Steam/Heroic verification is
+recorded, and the 24 synthetic cases remain specifications rather than executed tests.
 
 ## Approved architecture and open decisions
 
@@ -49,8 +54,16 @@ Rust bindings, and SQLite with relational separation of records and evidence.
 It retains the alternatives and engineering rationale. The owner reviewed the
 comparison in the message and did not claim independent inspection of that file.
 
-Physical schema, migration strategy, connection model, retention policy,
-packaging/distribution, ownership authentication, specific Steam/Heroic transports,
+The owner separately approved the [clarified logical mapping](persistence-mapping.md)
+from the discussion. All four review conditions are satisfied as behavioral
+obligations. Heroic's reporter-local identity profile remains provisional; manager
+authority is distinct from storefront identity authority. The
+[physical schema proposal](sqlite-schema-proposal.md) remains the next independent
+approval gate. Its recommendations are not accepted decisions.
+
+Encodings, minimum SQLite version and `STRICT`, exact physical schema, foreign
+keys/indexes/constraints, migration strategy, connection model, durability,
+retention policy, packaging/distribution, ownership authentication, specific Steam/Heroic transports,
 synchronization scheduling, process identity mechanisms, and detailed UI design
 remain open. No expiry interval or automatic matching algorithm is selected.
 
@@ -59,11 +72,11 @@ distinct ownership and installation, Steam handoff, and observable states. Heroi
 discovery and delegation follow. Local installation discovery cannot promise a
 complete owned-game library.
 
-The language/runtime, application structure, toolkit, and engine decisions are
-resolved within those boundaries. Implementation remains outside this
-documentation-only next action. The core must be independently testable without
-GTK, SQLite, or live
-launchers; architectural approval does not establish reconciliation correctness.
+The language/runtime, application structure, toolkit, engine, and logical mapping
+decisions are resolved within those boundaries. Implementation remains outside
+this documentation-only next action. The core must be independently testable
+without GTK, SQLite, or live launchers; architectural approval does not establish
+reconciliation correctness.
 Blocking discovery, storage operations, and handoff work must stay outside GTK's
 UI thread, with results returned safely for presentation. Remaining consequential
 decisions still need concrete alternatives, tradeoffs, a recommendation, and an
