@@ -73,8 +73,8 @@ traceable to sufficient evidence:
 Re-observing an old cached record does not necessarily renew the freshness of its
 underlying claim. Keep source age separate from when Koiné read it. Sufficient
 provenance does not require retaining entire files, credentials, or unlimited raw
-history. Storage and retention mechanisms are unselected, but must preserve the
-basis for current conclusions and their supersession.
+history. Physical storage layout and retention mechanisms are unselected, but must
+preserve the basis for current conclusions and their supersession.
 
 Persistent library records must preserve the five concepts, their stable
 references and relationships, and the evidence needed to recover those conclusions

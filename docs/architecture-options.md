@@ -1,30 +1,44 @@
-# Language, runtime, and application architecture proposal
+# Language, runtime, and application architecture decisions
 
-**Status: Proposed — awaiting owner approval.** Evaluation date: 2026-10-25.
-No option in this document is an accepted architectural decision. The
+**Status: A–D approved by owner engineering review.** Original evaluation date:
+2026-10-25. Approval is limited to the choices and boundaries recorded below. The
 [foundation](README.md), [domain](domain-model.md),
 [discovery](discovery-contract.md), and [launch](launch-contract.md) contracts
-remain authoritative. This proposal contains engineering judgments informed by
-the linked primary documentation; it is not a benchmark or integration test.
+remain authoritative. The retained comparison contains engineering judgments
+informed by the linked primary documentation; it is not a benchmark or integration
+test. Engineering authorship of that analysis is unchanged by owner approval.
 
-## Recommendation and exact questions
+## Approved decisions and boundaries
 
-Recommend Rust with Cargo, a modular application-local core, GTK4/libadwaita through
-their Rust bindings, and SQLite for local persistence. Request four independently
-approvable decisions:
-
-| Approval | Exact unresolved question | Recommended answer | Work blocked without it |
+| Decision | Status | Approved choice | Approval boundary |
 | --- | --- | --- | --- |
-| A: Language/runtime | Which language and execution environment should implement the first slice? | Stable Rust, edition 2024, built/tested with Cargo; standard worker threads for blocking work. If C is approved, GLib owns the UI event loop. Do not add Tokio initially. | Executable domain/reconciliation/launch logic and its contract tests. |
-| B: Application structure | Should the first slice run as one desktop application, a UI plus independent service, or a host with adapter subprocesses? | One application with a UI-independent core and built-in adapters; bounded workers and one serialized coordinator for mutations. Jobs run within the application's lifetime. | Production orchestration, job lifecycle, and integration boundaries. A alone can still unblock isolated domain tests. |
-| C: Desktop UI | Which toolkit and presentation model should implement the Linux UI? | GTK4 plus libadwaita, using gtk4-rs and libadwaita Rust bindings directly. | Desktop shell, library views, target selection, and presentation of evidence and launch states. |
-| D: Persistence direction | Which local storage engine and general data organization should support persistent records? | SQLite with relational separation of concepts and evidence, explicit transactions and migrations, behind a small repository interface. | Durable repository implementation. Exact physical schema remains a subsequent reviewable proposal before migrations are implemented. |
+| A: Language/runtime | Approved | Stable Rust, edition 2024, Cargo, standard workers without Tokio initially. | The core must remain independently testable without GTK, SQLite, or live launchers. Types help constrain states; executable tests must still establish reconciliation correctness. |
+| B: Application structure | Approved | Application-local core, built-in adapters, bounded workers, serialized state mutations. | Core testability remains mandatory. This does not approve synchronization scheduling or detailed process identity mechanisms. |
+| C: Desktop UI | Approved | GTK4/libadwaita using Rust bindings. | Respect GTK main-thread requirements. Blocking discovery, database operations, and handoff work stay outside the UI thread, with results returned safely for presentation. Detailed UI design remains open. |
+| D: Persistence | Approved | SQLite, relational separation of records and evidence; physical schema deferred. | No particular schema, migration strategy, connection model, or retention policy is approved. Claim provenance, stable identities, uncertainty, and justified supersession remain mandatory. |
 
-Existing decisions constrain truth and authority, but do not select a language,
-toolkit, process topology, or storage engine. All shortlisted options can satisfy
-the contracts. The recommendation weighs maintainability, explicit state modeling,
-testability without a desktop session, local integration complexity, contributor
-effort, and Linux distribution constraints. There is no evidence yet about future
+The owner approved A–D based on the comparison presented in the assistant's message
+and the established contracts. The owner explicitly stated:
+
+> I have reviewed the comparison in your message, not independently inspected the local `architecture-options.md` file.
+
+This records engineering approval of the four choices, not independent review or
+blanket approval of every detail in this file. Module layouts, the connection/write
+coordination model, attempt-persistence sequencing, and other detailed proposals
+below remain engineering proposals wherever not expressly covered by A–D.
+
+The next action authorized by this review is documentation only. Architecture
+approval does not authorize implementation, live launcher execution, or public
+push. The 24 synthetic cases remain behavioral requirements and have not become
+executed tests through approval.
+
+## Evaluation basis retained from the proposal
+
+Before approval, the contracts constrained truth and authority without selecting a
+language, toolkit, process topology, or storage engine. All shortlisted options
+can satisfy the contracts. The recommendation weighed maintainability, explicit
+state modeling, testability without a desktop session, local integration complexity,
+contributor effort, and Linux distribution constraints. There is no evidence yet about future
 maintainers' language preferences, library scale, or performance targets, so no
 numeric scores, staffing assumptions, or performance rankings are assigned.
 
@@ -104,7 +118,7 @@ flowchart TD
     APP --> HANDOFF[Launcher handoff transport]
     APP --> OBS[Bounded observation interface]
     DISC --> DATA[Read-only external observations]
-    STORE --> DB[(SQLite if D approved)]
+    STORE --> DB[(SQLite - engine approved, schema deferred)]
     HANDOFF --> LAUNCHERS[Authoritative external launchers]
 ```
 
@@ -120,11 +134,12 @@ reads or transport operations and return scoped data. Arrival order remains
 different from evidence order under R6. The UI displays committed conclusions and
 explicit pending operations; it must not optimistically label a game running.
 
-For the recommended GTK option, the GLib main loop owns widgets. Discovery,
+For the approved GTK option, the GLib main loop owns widgets. Discovery,
 database I/O, and command waiting must not block that loop. A bounded worker
 mechanism passes ordinary data back through GLib-compatible notifications; exact
-queue/channel libraries can be selected during implementation. Storage has one
-write coordinator and is kept off the UI thread. GTK's
+queue/channel libraries remain implementation details. A single storage write
+coordinator remains a proposal; the connection model is not approved. Blocking
+storage work stays off the UI thread. GTK's
 [threading rules](https://docs.gtk.org/gtk4/section-threading.html) and the gtk-rs
 [event-loop guidance](https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html)
 support this separation. Tokio is a feasible later choice if an approved dependency
@@ -163,7 +178,8 @@ whether a source omission is authoritative or make external handoff atomic.
 The [foreign-key documentation](https://www.sqlite.org/foreignkeys.html) requires
 explicit runtime enforcement rather than assuming a default setting.
 
-Approval D selects the engine and relational direction only. The next schema
+Approval D selects the engine and relational direction only; it does not approve
+a migration strategy, connection model, or retention policy. The next schema
 proposal must show scoped uniqueness, recoverable knowledge/freshness and dispute,
 evidence/supersession links, coverage, attempt/process separation, and migration
 behavior. It must not reduce the library to one mutable game row. SQL table names,
@@ -184,14 +200,14 @@ the schema and build constraints are reviewed.
 | Accepted handoff, timeout, observer loss, PID reuse | Inject transport and observer evidence independently. Unsupported observation reports inconclusive. Select a real identity method only after its separate design/evidence review. |
 | Missing artwork | Optional presentation data is outside the handoff dependency chain; test that missing/failed metadata leaves a valid launch operation available. |
 
-After approval A, translate applicable portions of all 24 specifications into
-core tests and identify the adapter/storage/UI portions that still need their
-respective implementation. Rust supports separate
+When implementation is separately authorized, translate applicable portions of
+all 24 specifications into core tests and identify the adapter/storage/UI portions
+that still need their respective implementation. Rust supports separate
 [library unit and integration tests](https://doc.rust-lang.org/book/ch11-03-test-organization.html).
 Do not count a fixture-based test as live Steam/Heroic verification, and do not
 claim an unimplemented storage or UI case passed just because its pure rules did.
 
-## Tradeoffs accepted by the recommendation, if approved
+## Rationale and tradeoffs retained from the proposal
 
 Rust increases initial implementation and contributor learning effort relative to
 the Python candidate. GTK adds GObject/main-thread integration work rather than
@@ -227,22 +243,33 @@ modules with different terms. Preserve Koiné's MIT license; review actual selec
 modules, linking/bundling, and notices before release. This evaluation is not
 distribution clearance and does not assume a paid Qt license is necessary.
 
-## Approval boundary and remaining work
+## Remaining decisions and work authorization
 
-Approval can name A, B, C, and D separately, or approve the recommendation as a
-whole. A and B unblock the executable core and application coordination; C adds
-the desktop shell; D unblocks the concrete schema proposal. No response, a local
-commit of this document, or approval of one row implies approval of other rows.
+A–D resolve the language/runtime, application structure, toolkit, and storage-engine
+choices within the recorded boundaries. They do not authorize implementation in
+this documentation-only next step. No application scaffolding, dependency manifests,
+dependency installation, migrations, or live launcher execution belong in this pass.
 
 Packaging/distribution, exact physical schema, ownership API authentication,
 periodic/background synchronization, process-monitoring method, specific launcher
-transports, automatic cross-store matching, and freshness policies remain open.
+transports, detailed UI design, migration strategy, connection model, retention
+policy, automatic cross-store matching, and freshness policies remain open.
 Source formats and transports still need the
 [integration evidence work](integration-evidence.md). These do not prevent core
-tests or an honest inconclusive process state after A/B approval, but they do
-limit claims about completed integrations and the persistent desktop slice.
+tests or an honest inconclusive process state once implementation is authorized,
+but they do limit claims about completed integrations and the persistent desktop
+slice.
 
-Until owner approval, do not scaffold the application, add dependency manifests,
-install dependencies, implement migrations, or update current-state documentation
-to say the proposed technologies were selected. This pass prepares a local
-decision artifact only; publication still requires authorization.
+Publication still requires separate authorization. Architecture approval and a
+local documentation commit do not establish implementation or test completion.
+
+## Decision history
+
+- **Original evaluation, 2026-10-25:** A–D were proposed with alternatives, rationale,
+  and open questions in local commit `2a7c309`. No architecture choice was approved
+  at that checkpoint.
+- **Subsequent owner engineering review:** The owner approved A–D as presented in
+  the message comparison, with the boundaries recorded above, and explicitly did
+  not claim independent inspection of this file. The owner requested a
+  documentation-only record of approval. No implementation, executed-test, or
+  publication status was advanced by that review.

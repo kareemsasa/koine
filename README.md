@@ -43,8 +43,16 @@ searchable collection without replacing the applications that manage them.
 
 Early architecture and requirements definition.
 
-No application framework, programming language, database schema, or deployment
-mechanism has been selected.
+The owner has approved stable Rust (edition 2024, Cargo), an application-local core
+with built-in adapters, bounded workers and serialized state mutations,
+GTK4/libadwaita through Rust bindings, and SQLite with relational separation of
+records and evidence. Standard workers are approved without Tokio initially.
+
+The [architecture decision record](docs/architecture-options.md) defines the approval
+boundaries. Physical schema, migration strategy, connection model, retention policy,
+packaging/distribution, and other listed decisions remain open. The approval's next
+action is documentation only; implementation and live launcher execution require
+separate authorization.
 
 The [engineering foundation](docs/README.md) defines the domain, discovery and
 reconciliation contracts, launch state semantics, and synthetic acceptance cases.

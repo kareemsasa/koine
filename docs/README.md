@@ -34,33 +34,40 @@ implementation details. Contract elaborations include scoped keys, per-claim
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
-The foundation is documentation only. There is no approved executable application
-environment, implemented adapter, or real Steam/Heroic verification in this pass.
-The cases deliberately use semantic inputs rather than purported launcher files.
+The repository remains documentation only. A–D have architectural approval, but
+this review authorizes only recording the decisions. No adapter is implemented,
+no real Steam/Heroic verification is recorded, and the 24 synthetic acceptance
+cases remain specifications rather than executed tests.
 
-## Decisions still open
+## Approved architecture and open decisions
 
-Application language, UI framework, desktop toolkit, database technology, physical
-persistence schema, packaging/distribution, authentication strategy for ownership
-APIs, background synchronization architecture, and process-monitoring implementation
-remain undecided. No expiry interval, automatic matching algorithm, launcher path,
-or universal launcher transport has been selected here either.
+The [architecture decision record](architecture-options.md) is authoritative for
+the owner's A–D approval and its boundaries: stable Rust (edition 2024, Cargo),
+standard workers without Tokio initially, an application-local core with built-in
+adapters, bounded workers and serialized state mutations, GTK4/libadwaita through
+Rust bindings, and SQLite with relational separation of records and evidence.
+It retains the alternatives and engineering rationale. The owner reviewed the
+comparison in the message and did not claim independent inspection of that file.
 
-The [language/runtime and application architecture comparison](architecture-options.md)
-contains concrete alternatives and an engineering recommendation for owner approval.
-Its status is proposed; it does not change the decisions listed above.
+Physical schema, migration strategy, connection model, retention policy,
+packaging/distribution, ownership authentication, specific Steam/Heroic transports,
+synchronization scheduling, process identity mechanisms, and detailed UI design
+remain open. No expiry interval or automatic matching algorithm is selected.
 
 The first vertical slice remains manual and Steam discovery, persistent records,
 distinct ownership and installation, Steam handoff, and observable states. Heroic
 discovery and delegation follow. Local installation discovery cannot promise a
 complete owned-game library.
 
-Documentation and acceptance specifications can proceed without selecting a stack.
-Executable product implementation needs a language/runtime decision; UI and durable
-storage work will also need toolkit and persistence decisions. When that next work
-is authorized, present concrete alternatives, tradeoffs, a recommendation, and the
-work blocked by each necessary decision. No decision request is needed to finish
-this foundation, and completing it does not authorize choosing the stack.
+The language/runtime, application structure, toolkit, and engine decisions are
+resolved within those boundaries. Implementation remains outside this
+documentation-only next action. The core must be independently testable without
+GTK, SQLite, or live
+launchers; architectural approval does not establish reconciliation correctness.
+Blocking discovery, storage operations, and handoff work must stay outside GTK's
+UI thread, with results returned safely for presentation. Remaining consequential
+decisions still need concrete alternatives, tradeoffs, a recommendation, and an
+explanation of affected work when they become necessary.
 
 ## Maintaining the contracts
 
