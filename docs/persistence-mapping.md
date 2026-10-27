@@ -134,8 +134,16 @@ authoritative. These validations have not run. The separately approved
 ownership, serialized writes, WAL/FULL, contention/checkpoint values, crash
 recovery and backup mechanics at design level. Its backup completion/reader
 availability and transaction-uncertainty conformance obligations remain unexecuted.
-Migration/schema upgrades, evidence retention/pruning/archival, backup scheduling,
-destination selection and restoration, and packaging/runtime supply remain open;
+The separately approved [migration policy](sqlite-migration-proposal.md) resolves
+migration strategy at design level, with metadata approved in principle and
+independent review required for each actual transition. Exact application ID,
+identity/history definitions and artifact-digest rules, released compatibility
+manifests/transitions, backup destination/finalization, guarded-table rebuild
+mechanisms and runtime packaging verification remain open. The separately approved
+[initial retention and archival policy](evidence-retention-proposal.md) retains all
+committed structured evidence live and uses validated full copies without pruning
+or relocation. Archival administration, pruning/cold relocation, optional-cache
+cleanup, permanent erasure, routine backup scheduling and restoration remain open;
 distribution compatibility remains unverified.
 
 The authorized next step is documentation only. No migrations, Rust code,

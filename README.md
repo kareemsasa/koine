@@ -54,11 +54,22 @@ is separately approved as the implementation design baseline. The
 [SQLite operational policy](docs/sqlite-operational-policy.md) also has design-level
 approval, including dedicated reader/writer ownership, serialized writes, WAL/FULL,
 a verified WAL-reset-fixed runtime, and initial contention/checkpoint values.
-Executable correctness remains unverified. Migration/schema upgrades, evidence
-retention, backup scheduling/destinations/restoration, packaging/runtime supply,
-and other listed decisions remain open. The current action is documentation only;
-implementation, database creation, and live launcher execution require separate
-authorization.
+The [migration and schema-upgrade policy](docs/sqlite-migration-proposal.md) is
+also approved at design level, with metadata approved in principle and independent
+review required for each actual migration. Executable correctness remains
+unverified. Exact application ID, metadata DDL/digest rules, released compatibility
+manifests/transitions, backup destination/finalization, guarded-table rebuild
+mechanisms and runtime packaging verification remain open, alongside general
+backup/restore administration. The
+[evidence retention and archival policy](docs/evidence-retention-proposal.md)
+has design-level approval: retain all committed structured evidence initially and
+use validated full archival copies without removing live records. Storage growth
+and copy duplication are nonblocking design limitations; archival administration,
+cache cleanup, pruning/cold relocation and permanent erasure remain separate open
+decisions. The current action is documentation recording of that approval;
+implementation, database operations, deletion, migration, executable tests, live
+launcher execution and publication are not authorized by it. The 24 acceptance
+specifications remain unchanged and unexecuted.
 
 The [engineering foundation](docs/README.md) defines the domain, discovery and
 reconciliation contracts, launch state semantics, and synthetic acceptance cases.

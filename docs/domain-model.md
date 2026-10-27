@@ -76,8 +76,11 @@ Re-observing an old cached record does not necessarily renew the freshness of it
 underlying claim. Keep source age separate from when Koiné read it. Sufficient
 provenance does not require retaining entire files, credentials, or unlimited raw
 history. The separately approved [physical design](sqlite-schema-proposal.md)
-specifies persistence records and encodings. Retention mechanisms remain open;
-they must preserve the basis for current conclusions and their supersession.
+specifies persistence records and encodings. The separately approved
+[initial retention policy](evidence-retention-proposal.md) keeps all committed
+structured evidence live and permits validated archival copies without pruning.
+Future pruning/cold relocation mechanisms remain open; they must preserve the
+basis for retained conclusions and their supersession.
 
 Persistent library records must preserve the five concepts, their stable
 references and relationships, and the evidence needed to recover those conclusions

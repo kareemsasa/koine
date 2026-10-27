@@ -49,9 +49,16 @@ All 24 acceptance specifications remain unchanged and unexecuted.
 The separately approved [SQLite operational policy](sqlite-operational-policy.md)
 selects connection ownership, journal/durability configuration, busy handling,
 checkpointing, crash recovery and backup mechanics at design level. Its conformance
-obligations remain unexecuted. Migration/schema upgrades, repair/restore tooling,
-evidence retention, backup scheduling/destinations, and packaging/runtime supply
-remain independent open decisions. Distribution compatibility remains unverified.
+obligations remain unexecuted. The separate
+[migration policy](sqlite-migration-proposal.md) now has design approval, with
+metadata approved in principle and independent review required for each actual
+transition. Its detailed open decisions remain implementation prerequisites.
+The separately approved [initial retention policy](evidence-retention-proposal.md)
+keeps all committed structured evidence live and uses validated full archival
+copies without pruning or relocation. Repair/restore tooling, archival
+administration, pruning/cold relocation, optional-cache cleanup, permanent erasure,
+backup scheduling/destinations and packaging/runtime supply remain independent
+open decisions. Distribution compatibility remains unverified.
 No authorization to create migrations, Rust code, databases, or run live launcher
 integrations or publish follows from
 the design approval. The current next action is documentation only.
@@ -65,12 +72,18 @@ the design approval. The current next action is documentation only.
 | Claim layout | A closed claim-subject registry and one finite typed-payload claim table, described below. | Separate tables per claim family reduce nullable payload fields but multiply common provenance and supersession structures. No unrestricted attribute/plugin schema is proposed. |
 | Source identity resolution | Preserve source-entry handles and reporter-local keys; derive equivalence only from supported identity claims. | Destructive canonicalization would require rewriting references and loses the original distinction. |
 | Current state | Derive from evidence and validated decisions; no authoritative current-state cache initially. | Materialized projections need explicit invalidation and consistency rules. |
-| Mutation protection | Immutable facts and decisions, with rejecting update/delete guards; revisions add claims. | Relying solely on application convention gives weaker database protection. A later approved retention/migration path must account for these guards. |
+| Mutation protection | Immutable facts and decisions, with rejecting update/delete guards; revisions add claims. | Relying solely on application convention gives weaker database protection. Each migration needs independently reviewed guard/preservation mechanisms under the separate migration policy; initial retention approval grants no pruning exception. |
 | Connections and durability | Separately approved in the [operational policy](sqlite-operational-policy.md): dedicated reader/writer ownership, serialized IMMEDIATE writes, WAL/FULL, bounded contention, controlled checkpoints, crash recovery and validated backups. | Operational design approval does not establish executable conformance or select packaging/runtime supply. |
-| Migration and retention | Leave version transitions, repair/restore tooling, pruning, and archival open. | No migration or automatic purge is included in this design. |
+| Migration and retention | Migration policy separately approved at design level; metadata approved in principle. Initial retention and validated full archival copies separately approved without pruning or relocation. Actual transitions, repair/restore tooling, archival administration and pruning/cold relocation remain open. | No migration script or automatic purge is included in this design; each actual transition requires independent review. |
 
-Catalog approval is separate from operational-policy approval and the remaining
-distribution, migration, retention and backup-administration decisions.
+Catalog approval is separate from operational-policy, migration-policy and initial
+retention-policy approval, and the remaining distribution, archival administration,
+pruning/cold relocation and backup-administration decisions.
+The [migration/schema-upgrade policy](sqlite-migration-proposal.md) has separate
+design approval for compatibility, atomic transitions, recovery and validation.
+Metadata additions are approved in principle; exact DDL/digest rules and each
+transition's guard-maintenance mechanisms remain subject to independent review.
+This does not expand the original physical-catalog approval or relax enforcement.
 Any dependency still open must be settled before the
 implementation that requires it. This design approval does not authorize
 implementation or publication.
@@ -241,7 +254,8 @@ entry remains present through that entry. Unlinking and removal remain independe
 removal does not revoke access, uninstall, stop a game, or purge evidence.
 
 This supplies the persistent removal semantics required by
-`manual-title-without-access`. Retention and physical deletion remain open.
+`manual-title-without-access`. The separately approved initial retention policy
+preserves this history; physical pruning and permanent erasure remain unselected.
 
 Context-role checks are explicit core obligations: subject references have kind
 subject; manager/launcher references manager; machine references machine; library
@@ -831,9 +845,15 @@ Executable correctness remains unverified and subject to the attached reproducib
 serialization vectors and guard/conformance requirements. The
 [operational policy](sqlite-operational-policy.md) separately resolves connection
 ownership, journal/durability settings, busy handling, checkpointing, routine crash
-recovery and backup mechanics as design. Migration/schema upgrades, evidence
-retention, repair/restore tooling, backup scheduling/destinations, and packaging/runtime
-supply remain open. Distribution compatibility is still unverified.
+recovery and backup mechanics as design. The
+[migration policy](sqlite-migration-proposal.md) separately resolves migration
+strategy at design level, with metadata approved in principle and independent
+per-transition review required. The separately approved initial retention policy
+keeps all committed structured evidence live and uses validated full archival
+copies without pruning or relocation. Migration's detailed open decisions,
+archival administration, pruning/cold relocation, optional-cache cleanup, permanent
+erasure, repair/restore tooling, backup scheduling/destinations/finalization policy
+and packaging/runtime supply remain open. Distribution compatibility is still unverified.
 No current ownership, integration success, executable correctness, or publication
 clearance follows from documenting the schema. Implementation needs separate
 authorization after the relevant design decisions are settled.
@@ -859,3 +879,10 @@ authorization after the relevant design decisions are settled.
   including initial values and retained conformance obligations. This separately
   resolves the operational decisions left open at the physical-review checkpoint;
   no physical catalog, executable-validation or publication status changed.
+- Subsequent migration review, recorded 2026-10-27: the owner independently reviewed
+  the uploaded [migration policy](sqlite-migration-proposal.md) against this design,
+  the operational policy and SQLite documentation, and approved it at design level.
+  Identity/history metadata is approved in principle; exact definitions, artifact
+  digest rules and per-transition mechanisms still require review. Original catalog
+  approval, executable-validation, implementation and publication boundaries are
+  unchanged.

@@ -19,6 +19,14 @@ The subsequent [SQLite operational approval](sqlite-operational-policy.md)
 separately resolves connection ownership, serialized IMMEDIATE writes, WAL/FULL,
 contention/checkpoint values, crash recovery, backup mechanics and process ownership
 at design level. It does not alter the original A–D approval scope in this table.
+The subsequent [migration-policy approval](sqlite-migration-proposal.md) separately
+resolves migration strategy at design level, with metadata approved in principle
+and independent review required for each actual transition. It does not expand
+A–D's original scope or establish executable correctness.
+The subsequent [retention-policy approval](evidence-retention-proposal.md)
+separately establishes initial retention of all committed structured evidence and
+validated full archival copies without pruning or relocation. Its nonblocking
+limitations and further decisions do not expand A–D's original scope.
 
 | Decision | Status | Approved choice | Approval boundary |
 | --- | --- | --- | --- |
@@ -36,7 +44,8 @@ This records engineering approval of the four choices, not independent review or
 blanket approval of every detail in this file. Module layouts, the connection/write
 coordination model, attempt-persistence sequencing, and other detailed proposals
 below remain engineering proposals wherever not expressly covered by A–D or the
-subsequent physical-design or operational-policy approvals.
+subsequent physical-design, operational-policy, migration-policy or initial
+retention-policy approvals.
 
 The next action authorized by this review is documentation only. Architecture
 approval does not authorize implementation, live launcher execution, or public
@@ -180,8 +189,14 @@ This comparison and D's original scope are retained as historical rationale.
 The later [physical design baseline](sqlite-schema-proposal.md) supersedes schema
 deferral; the separate [operational policy](sqlite-operational-policy.md) resolves
 connection ownership, durability, contention, checkpointing, crash recovery and
-backup mechanics. Migration/schema upgrades, evidence retention, backup
-administration/restore, and packaging/runtime supply remain open.
+backup mechanics. The separate [migration policy](sqlite-migration-proposal.md)
+resolves migration strategy at design level, with metadata approved in principle
+and actual transitions subject to independent review. The separate
+[initial retention policy](evidence-retention-proposal.md) retains all committed
+structured evidence live and uses validated full archival copies without pruning
+or relocation. Migration's detailed open decisions, archival administration,
+pruning/cold relocation, backup administration/restore and packaging/runtime supply
+remain open.
 The paragraphs below describe what D alone selected, not a present need to obtain
 physical-design approval again.
 
@@ -273,15 +288,24 @@ dependency installation, migrations, or live launcher execution belong in this p
 
 Packaging/distribution, ownership API authentication,
 periodic/background synchronization, process-monitoring method, specific launcher
-transports, detailed UI design, migration strategy, retention
-policy, automatic cross-store matching, and freshness policies remain open.
+transports, detailed UI design, archival administration, pruning/cold relocation,
+optional-cache cleanup, permanent erasure, automatic cross-store matching,
+and freshness policies remain open.
 Physical schema, canonical protocols and specified guards/sealing now have
 separate design approval; executable correctness and the required serialization
 vectors and guard/conformance validation remain unverified. The separate
 [operational policy](sqlite-operational-policy.md) has design-level approval;
-its conformance obligations remain unexecuted. Backup scheduling, destination
-selection and restoration, repair tooling, and the verified runtime-supply
-mechanism remain open. Source formats and transports still need the
+its conformance obligations remain unexecuted. The separate
+[migration policy](sqlite-migration-proposal.md) also has design-level approval,
+with metadata approved in principle and independent per-transition review required.
+The separate [initial retention and archival policy](evidence-retention-proposal.md)
+also has design-level approval; all committed structured evidence remains live,
+and validated full copies authorize neither pruning nor relocation.
+Exact application ID, identity/history DDL and artifact-digest rules, released
+compatibility manifests/transitions and guarded-table rebuild mechanisms remain
+open. Backup scheduling, destination/durable-finalization policy and restoration,
+repair tooling, and the verified runtime-supply mechanism remain open. Source
+formats and transports still need the
 [integration evidence work](integration-evidence.md). These do not prevent core
 tests or an honest inconclusive process state once implementation is authorized,
 but they do limit claims about completed integrations and the persistent desktop
@@ -306,3 +330,10 @@ local documentation commit do not establish implementation or test completion.
   availability and transaction uncertainty remain explicit conformance obligations.
   This does not expand A–D's original approval scope or authorize implementation,
   runtime validation, or publication.
+- **Subsequent migration review, recorded 2026-10-27:** The owner independently
+  reviewed the uploaded [migration policy](sqlite-migration-proposal.md) against the
+  approved physical schema, operational policy and SQLite documentation, and
+  approved the design with metadata approved in principle. Each actual migration
+  still requires independent review and the retained implementation conditions.
+  A–D's original approval scope, executable-validation status, implementation
+  authorization and publication clearance are unchanged.

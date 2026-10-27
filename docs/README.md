@@ -21,6 +21,15 @@ game configuration and execution.
 8. [Approved SQLite operational policy](sqlite-operational-policy.md): connection
    ownership, serialized writes, durability, contention, checkpoints, crash recovery,
    backup obligations, and decisions still open.
+9. [Approved migration and schema-upgrade policy](sqlite-migration-proposal.md):
+   version compatibility, atomic upgrades, interrupted recovery, unsupported
+   databases, and validation before normal operation; design approval only,
+   with metadata approved in principle and executable correctness unverified.
+10. [Approved evidence retention and archival policy](evidence-retention-proposal.md):
+    mandatory preservation versus optional retention, deletion eligibility,
+    referenced evidence, archival alternatives, manual removal and recovery
+    consequences; initial retention and copy-only archival approved at design
+    level, with nonblocking limitations and further decisions retained.
 
 ## Authority and status
 
@@ -42,10 +51,14 @@ evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
 The repository remains documentation only. A–D, the clarified logical mapping,
-the physical SQLite design, and the operational policy have approval within their
-recorded boundaries. The current action is recording operational-design approval;
-implementation is not authorized. No adapter is implemented, no real Steam/Heroic verification is
-recorded, and the 24 synthetic cases remain specifications rather than executed tests.
+the physical SQLite design, the operational policy, the migration policy and the
+initial retention/copy-only archival policy have
+approval within their recorded boundaries. Migration metadata is approved in
+principle. The current action is documentation recording of retention-design
+approval; implementation, database operations, deletion, migration, executable
+tests and publication are not authorized.
+No adapter is implemented, no real Steam/Heroic verification is recorded, and the
+24 synthetic cases remain specifications rather than executed tests.
 
 ## Approved architecture and open decisions
 
@@ -88,11 +101,39 @@ These conformance obligations remain unexecuted. The owner reviewed the uploaded
 proposal against persistence contracts and SQLite documentation; approval does not
 establish local Git inspection or executable behavior.
 
-Migration/schema upgrades, repair/restore tooling, evidence retention/pruning/archival,
+Repair/restore tooling, archival administration, pruning/cold relocation,
 backup scheduling/destination selection, packaging/runtime supply, ownership
 authentication, specific Steam/Heroic transports,
 synchronization scheduling, process identity mechanisms, and detailed UI design
 remain open. No expiry interval or automatic matching algorithm is selected.
+
+The [retention approval record](evidence-retention-proposal.md#approval-assessment)
+establishes the initial design policy: keep all committed structured evidence in
+the live database and use independently validated full-database archival copies
+without removing live records or redirecting references. Manual removal remains
+reversible visibility, not erasure. Storage growth, duplicated copies and the
+absence of bounded-size or complete-erasure guarantees are nonblocking design
+limitations. Inventory/destination/finalization, rotation/restore administration,
+optional-cache cleanup, future pruning/cold relocation and permanent-erasure
+semantics remain open. This does not change the physical catalog or establish
+executable correctness, implementation authorization or publication clearance.
+
+The [migration approval record](sqlite-migration-proposal.md) establishes design
+approval for exact compatibility checks, a whole-path transaction, mandatory
+validated safety copy, interrupted recovery, evidence preservation and validation
+before ordinary operations resume. The owner independently reviewed the uploaded
+proposal; no local Git inspection or executable result follows. Metadata is approved
+in principle. Each actual migration still needs independent review, including
+guarded-table mechanisms and preservation proofs. Source content must still match
+the validated safety copy before transformation; failed post-commit reopen/semantic
+validation keeps operation blocked without automatic restore.
+
+Exact application ID, identity/history DDL and artifact-digest rules, released
+compatibility manifests/transitions, backup destination/durable-finalization policy,
+per-transition guarded-table rebuild mechanisms and runtime packaging verification
+remain open. Routine crash recovery remains distinct from migration recovery and
+separately unselected repair/restore tooling. The migration conformance obligations
+remain unexecuted; implementation and publication are not authorized.
 
 The first vertical slice remains manual and Steam discovery, persistent records,
 distinct ownership and installation, Steam handoff, and observable states. Heroic
@@ -100,8 +141,10 @@ discovery and delegation follow. Local installation discovery cannot promise a
 complete owned-game library.
 
 The language/runtime, application structure, toolkit, engine, logical mapping,
-physical-design and operational-policy decisions are resolved within those
-boundaries. Implementation remains outside this documentation-only next action.
+physical-design, operational-policy, migration-policy and initial retention/archival
+decisions are resolved
+within those boundaries. Implementation remains outside this documentation-only
+next action.
 The core must be independently testable
 without GTK, SQLite, or live launchers; architectural approval does not establish
 reconciliation correctness.

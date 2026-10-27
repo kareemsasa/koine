@@ -197,12 +197,27 @@ backup/reopen behavior. These supplement the physical design's canonical vectors
 and guard/conformance obligations. All 24 existing
 [acceptance specifications](acceptance-cases.md) remain unchanged and unexecuted.
 
-Migration/schema-upgrade strategy; evidence retention, pruning and archival;
-backup scheduling, destination selection and restoration; packaging and the
-runtime-supply mechanism remain unapproved. Routine crash recovery is approved as
+The separately approved [retention policy](evidence-retention-proposal.md) keeps all
+committed structured evidence live and uses validated full archival copies without
+pruning or relocation. Archival inventory, pruning/cold relocation, optional-cache
+cleanup, permanent erasure, backup scheduling, destination selection,
+durable-finalization policy and restoration, packaging and the runtime-supply
+mechanism remain open. Routine crash recovery is approved as
 design; repair and restore tooling are not. No implementation, database creation,
 executable SQL, migrations, Rust code, runtime tests, live integrations or
 publication are authorized by this approval or its documentation record.
+
+The separately approved [migration/schema-upgrade policy](sqlite-migration-proposal.md)
+establishes a maintenance gate, whole-path transaction, mandatory validated safety
+copy, interrupted-upgrade recovery and pre-operation validation at design level.
+Metadata is approved in principle; exact identity/history definitions, artifact-digest
+rules, application ID, released compatibility manifests/transitions, backup
+destination/finalization, guarded-table rebuild mechanisms and runtime packaging
+verification remain open. Each actual migration requires independent review.
+Source content must still correspond to the validated backup before transformation;
+failed post-commit reopen or semantic validation blocks operation without automatic
+restore. This approval does not relax enforcement, approve future scripts or
+authorize restore tooling, ordinary evidence mutation or implementation.
 
 ## Primary references and evidence limits
 
@@ -240,3 +255,9 @@ the narrow engine behaviors below, not executable correctness of Koiné:
   completion/reader availability and transaction uncertainty as conformance
   obligations. Authorized documentation recording only. Implementation,
   executable-validation and publication status did not advance.
+- Subsequent migration review, recorded 2026-10-27: the owner independently reviewed
+  the uploaded [migration policy](sqlite-migration-proposal.md) and approved its
+  design, with metadata approved in principle, independent per-transition review
+  and retained implementation conditions. This does not expand the original
+  operational approval or establish executable correctness, implementation
+  authorization or publication clearance.
