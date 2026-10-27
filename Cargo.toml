@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/koine-core", "crates/koine-sqlite", "crates/koine-cli"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+
+[workspace.dependencies]
+koine-core = { path = "crates/koine-core" }
+koine-sqlite = { path = "crates/koine-sqlite" }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+rusqlite = { version = "0.41", features = ["backup"] }
+tempfile = "3"

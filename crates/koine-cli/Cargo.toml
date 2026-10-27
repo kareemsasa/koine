@@ -1,0 +1,10 @@
+[package]
+name = "koine-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+koine-core.workspace = true
+koine-sqlite.workspace = true
