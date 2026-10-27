@@ -50,11 +50,15 @@ records and evidence. Standard workers are approved without Tokio initially.
 
 The [architecture decision record](docs/architecture-options.md) defines A–D's
 approval boundaries. The [physical SQLite design](docs/sqlite-schema-proposal.md)
-is separately approved as the implementation design baseline; executable correctness
-remains unverified. Connection ownership, journal/durability settings, busy handling,
-migration/recovery, retention policy, packaging/distribution, and other listed
-decisions remain open. The current action is documentation only; implementation,
-database creation, and live launcher execution require separate authorization.
+is separately approved as the implementation design baseline. The
+[SQLite operational policy](docs/sqlite-operational-policy.md) also has design-level
+approval, including dedicated reader/writer ownership, serialized writes, WAL/FULL,
+a verified WAL-reset-fixed runtime, and initial contention/checkpoint values.
+Executable correctness remains unverified. Migration/schema upgrades, evidence
+retention, backup scheduling/destinations/restoration, packaging/runtime supply,
+and other listed decisions remain open. The current action is documentation only;
+implementation, database creation, and live launcher execution require separate
+authorization.
 
 The [engineering foundation](docs/README.md) defines the domain, discovery and
 reconciliation contracts, launch state semantics, and synthetic acceptance cases.

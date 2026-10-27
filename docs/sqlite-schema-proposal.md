@@ -46,10 +46,14 @@ executable correctness. These are attached obligations, not completed validation
 or permission to create vectors, tests, code, or databases in this recording step.
 All 24 acceptance specifications remain unchanged and unexecuted.
 
-Connection ownership, journal and durability configuration, busy handling,
-migration/recovery, and evidence retention remain independent open decisions.
-Distribution compatibility remains unverified. No authorization to create migrations,
-Rust code, databases, or run live launcher integrations or publish follows from
+The separately approved [SQLite operational policy](sqlite-operational-policy.md)
+selects connection ownership, journal/durability configuration, busy handling,
+checkpointing, crash recovery and backup mechanics at design level. Its conformance
+obligations remain unexecuted. Migration/schema upgrades, repair/restore tooling,
+evidence retention, backup scheduling/destinations, and packaging/runtime supply
+remain independent open decisions. Distribution compatibility remains unverified.
+No authorization to create migrations, Rust code, databases, or run live launcher
+integrations or publish follows from
 the design approval. The current next action is documentation only.
 
 ## Design choices, retained alternatives, and operational decisions
@@ -62,11 +66,12 @@ the design approval. The current next action is documentation only.
 | Source identity resolution | Preserve source-entry handles and reporter-local keys; derive equivalence only from supported identity claims. | Destructive canonicalization would require rewriting references and loses the original distinction. |
 | Current state | Derive from evidence and validated decisions; no authoritative current-state cache initially. | Materialized projections need explicit invalidation and consistency rules. |
 | Mutation protection | Immutable facts and decisions, with rejecting update/delete guards; revisions add claims. | Relying solely on application convention gives weaker database protection. A later approved retention/migration path must account for these guards. |
-| Connections and durability | Leave connection ownership, journal mode, synchronous setting, busy handling, and crash-backup mechanics open. | Serialized application mutation alone does not select any of them. |
-| Migration and retention | Leave version transitions, recovery tooling, pruning, and archival open. | No migration or automatic purge is included in this design. |
+| Connections and durability | Separately approved in the [operational policy](sqlite-operational-policy.md): dedicated reader/writer ownership, serialized IMMEDIATE writes, WAL/FULL, bounded contention, controlled checkpoints, crash recovery and validated backups. | Operational design approval does not establish executable conformance or select packaging/runtime supply. |
+| Migration and retention | Leave version transitions, repair/restore tooling, pruning, and archival open. | No migration or automatic purge is included in this design. |
 
-Catalog approval is separate from distribution, connection, migration, and
-retention decisions. Any dependency still open must be settled before the
+Catalog approval is separate from operational-policy approval and the remaining
+distribution, migration, retention and backup-administration decisions.
+Any dependency still open must be settled before the
 implementation that requires it. This design approval does not authorize
 implementation or publication.
 
@@ -752,8 +757,10 @@ Startup/read validation must not assume constraints prove the file is uncorrupte
 No database transaction spans filesystem enumeration, command waiting, or launcher
 execution. Blocking storage work also stays outside GTK's UI thread. Large-result
 batching is not included; it would need explicit consistency/coverage rules.
-Connection ownership, write-transaction mode, durability and busy handling remain
-independent decisions.
+Connection ownership, write-transaction mode, durability and busy handling are
+separately approved in the [operational policy](sqlite-operational-policy.md).
+Its transaction-uncertainty and no-replay obligations apply without changing the
+atomic boundaries above; executable behavior remains unverified.
 
 Reconstruction takes a consistent snapshot, supported profile/interpretation
 versions, selected reconciliation and freshness policy versions, assessment time,
@@ -821,9 +828,12 @@ Primary documentation inspected for this design:
 The physical-design review gate is satisfied. The catalog, canonical protocols and
 specified guard/seal behavior form the approved implementation design baseline.
 Executable correctness remains unverified and subject to the attached reproducible
-serialization vectors and guard/conformance requirements. Connection ownership,
-journal/durability settings, busy handling, migration/recovery and retention remain
-open. Distribution compatibility is still unverified.
+serialization vectors and guard/conformance requirements. The
+[operational policy](sqlite-operational-policy.md) separately resolves connection
+ownership, journal/durability settings, busy handling, checkpointing, routine crash
+recovery and backup mechanics as design. Migration/schema upgrades, evidence
+retention, repair/restore tooling, backup scheduling/destinations, and packaging/runtime
+supply remain open. Distribution compatibility is still unverified.
 No current ownership, integration success, executable correctness, or publication
 clearance follows from documenting the schema. Implementation needs separate
 authorization after the relevant design decisions are settled.
@@ -844,3 +854,8 @@ authorization after the relevant design decisions are settled.
   unperformed. Operational decisions and implementation/publication authorization
   were not advanced. The preceding Proposed/withheld entries describe historical
   checkpoints, not the current design status.
+- Subsequent operational review at reported baseline `5f578cc`: the owner approved
+  the uploaded [operational policy](sqlite-operational-policy.md) at design level,
+  including initial values and retained conformance obligations. This separately
+  resolves the operational decisions left open at the physical-review checkpoint;
+  no physical catalog, executable-validation or publication status changed.

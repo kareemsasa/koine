@@ -129,9 +129,14 @@ does not establish local Git verification or executable correctness.
 The implementation must verify canonical serialization using reproducible vectors
 and demonstrate through guard/conformance checks that incomplete decisions,
 invalid references, post-closure mutations and inconsistent coverage cannot become
-authoritative. These validations have not run. Connection ownership, journal and
-durability settings, busy handling, migration/recovery, retention and pruning
-remain open; distribution compatibility remains unverified.
+authoritative. These validations have not run. The separately approved
+[SQLite operational policy](sqlite-operational-policy.md) selects connection
+ownership, serialized writes, WAL/FULL, contention/checkpoint values, crash
+recovery and backup mechanics at design level. Its backup completion/reader
+availability and transaction-uncertainty conformance obligations remain unexecuted.
+Migration/schema upgrades, evidence retention/pruning/archival, backup scheduling,
+destination selection and restoration, and packaging/runtime supply remain open;
+distribution compatibility remains unverified.
 
 The authorized next step is documentation only. No migrations, Rust code,
 executable tests, live launcher execution, or public push are authorized by this

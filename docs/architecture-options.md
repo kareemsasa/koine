@@ -15,6 +15,10 @@ The table records the scope of the original A–D review. The subsequent
 establishes the catalog, canonical protocols and specified guard/seal baseline.
 The schema deferral under D describes that earlier approval checkpoint; it does
 not reopen the now-approved design or approve operational settings by implication.
+The subsequent [SQLite operational approval](sqlite-operational-policy.md)
+separately resolves connection ownership, serialized IMMEDIATE writes, WAL/FULL,
+contention/checkpoint values, crash recovery, backup mechanics and process ownership
+at design level. It does not alter the original A–D approval scope in this table.
 
 | Decision | Status | Approved choice | Approval boundary |
 | --- | --- | --- | --- |
@@ -32,7 +36,7 @@ This records engineering approval of the four choices, not independent review or
 blanket approval of every detail in this file. Module layouts, the connection/write
 coordination model, attempt-persistence sequencing, and other detailed proposals
 below remain engineering proposals wherever not expressly covered by A–D or the
-subsequent physical-design approval.
+subsequent physical-design or operational-policy approvals.
 
 The next action authorized by this review is documentation only. Architecture
 approval does not authorize implementation, live launcher execution, or public
@@ -125,7 +129,7 @@ flowchart TD
     APP --> HANDOFF[Launcher handoff transport]
     APP --> OBS[Bounded observation interface]
     DISC --> DATA[Read-only external observations]
-    STORE --> DB[(SQLite - engine approved, schema deferred)]
+    STORE --> DB[(SQLite - physical and operational designs approved)]
     HANDOFF --> LAUNCHERS[Authoritative external launchers]
 ```
 
@@ -144,9 +148,10 @@ explicit pending operations; it must not optimistically label a game running.
 For the approved GTK option, the GLib main loop owns widgets. Discovery,
 database I/O, and command waiting must not block that loop. A bounded worker
 mechanism passes ordinary data back through GLib-compatible notifications; exact
-queue/channel libraries remain implementation details. A single storage write
-coordinator remains a proposal; the connection model is not approved. Blocking
-storage work stays off the UI thread. GTK's
+queue/channel libraries remain implementation details. The separately approved
+[operational policy](sqlite-operational-policy.md) now selects dedicated reader and
+writer workers with a bounded writer queue and serialized semantic transactions.
+Blocking storage work stays off the UI thread. GTK's
 [threading rules](https://docs.gtk.org/gtk4/section-threading.html) and the gtk-rs
 [event-loop guidance](https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html)
 support this separation. Tokio is a feasible later choice if an approved dependency
@@ -173,9 +178,12 @@ it provides no exactly-once execution guarantee.
 
 This comparison and D's original scope are retained as historical rationale.
 The later [physical design baseline](sqlite-schema-proposal.md) supersedes schema
-deferral only; connection ownership, durability, migration/recovery, and retention
-remain independent open decisions. The paragraphs below describe what D alone
-selected, not a present need to obtain physical-design approval again.
+deferral; the separate [operational policy](sqlite-operational-policy.md) resolves
+connection ownership, durability, contention, checkpointing, crash recovery and
+backup mechanics. Migration/schema upgrades, evidence retention, backup
+administration/restore, and packaging/runtime supply remain open.
+The paragraphs below describe what D alone selected, not a present need to obtain
+physical-design approval again.
 
 | Option | Fit and material tradeoff |
 | --- | --- |
@@ -265,12 +273,15 @@ dependency installation, migrations, or live launcher execution belong in this p
 
 Packaging/distribution, ownership API authentication,
 periodic/background synchronization, process-monitoring method, specific launcher
-transports, detailed UI design, migration strategy, connection model, retention
+transports, detailed UI design, migration strategy, retention
 policy, automatic cross-store matching, and freshness policies remain open.
 Physical schema, canonical protocols and specified guards/sealing now have
 separate design approval; executable correctness and the required serialization
-vectors and guard/conformance validation remain unverified. Source formats and
-transports still need the
+vectors and guard/conformance validation remain unverified. The separate
+[operational policy](sqlite-operational-policy.md) has design-level approval;
+its conformance obligations remain unexecuted. Backup scheduling, destination
+selection and restoration, repair tooling, and the verified runtime-supply
+mechanism remain open. Source formats and transports still need the
 [integration evidence work](integration-evidence.md). These do not prevent core
 tests or an honest inconclusive process state once implementation is authorized,
 but they do limit claims about completed integrations and the persistent desktop
@@ -289,3 +300,9 @@ local documentation commit do not establish implementation or test completion.
   not claim independent inspection of this file. The owner requested a
   documentation-only record of approval. No implementation, executed-test, or
   publication status was advanced by that review.
+- **Subsequent operational review, recorded 2026-10-27:** The owner approved the
+  uploaded [SQLite operational policy](sqlite-operational-policy.md) at design
+  level, including initial contention/checkpoint values. Backup completion/reader
+  availability and transaction uncertainty remain explicit conformance obligations.
+  This does not expand A–D's original approval scope or authorize implementation,
+  runtime validation, or publication.

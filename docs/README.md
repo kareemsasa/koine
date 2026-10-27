@@ -17,7 +17,10 @@ game configuration and execution.
 6. [Approved logical-to-relational mapping](persistence-mapping.md): scoped identity,
    supersession validity, launch recovery, and deterministic reconstruction.
 7. [Approved physical SQLite design baseline](sqlite-schema-proposal.md): catalog,
-   canonical protocols, guard/seal requirements, and operational decisions still open.
+   canonical protocols and guard/seal requirements.
+8. [Approved SQLite operational policy](sqlite-operational-policy.md): connection
+   ownership, serialized writes, durability, contention, checkpoints, crash recovery,
+   backup obligations, and decisions still open.
 
 ## Authority and status
 
@@ -39,9 +42,9 @@ evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
 The repository remains documentation only. A–D, the clarified logical mapping,
-and the physical SQLite design have approval within their recorded boundaries.
-The current action is recording physical-design approval; implementation is not
-authorized. No adapter is implemented, no real Steam/Heroic verification is
+the physical SQLite design, and the operational policy have approval within their
+recorded boundaries. The current action is recording operational-design approval;
+implementation is not authorized. No adapter is implemented, no real Steam/Heroic verification is
 recorded, and the 24 synthetic cases remain specifications rather than executed tests.
 
 ## Approved architecture and open decisions
@@ -72,8 +75,22 @@ defines the limits and attached requirements: reproducible canonical-serializati
 vectors and guard/conformance checks for incomplete decisions, invalid references,
 post-closure mutations and inconsistent coverage. None has been executed.
 
-Connection ownership, journal/durability settings, busy handling, migration/recovery,
-retention policy, packaging/distribution, ownership authentication, specific Steam/Heroic transports,
+The [operational approval record](sqlite-operational-policy.md) is authoritative
+for dedicated reader/writer ownership, a bounded writer queue, IMMEDIATE writes,
+WAL/FULL on supported local storage, a verified WAL-reset-fixed runtime, one active
+process per database, crash recovery and validated Online Backup API copies.
+The five-second cumulative lock-contention budget and 1,000-page passive checkpoint
+threshold are approved initial policy values, not empirically validated settings.
+Backup completion must reach `SQLITE_DONE` and yield fairly to ordinary reads;
+transaction failures must preserve commit uncertainty and inspect immutable
+identities before database retry, without replaying launcher submissions.
+These conformance obligations remain unexecuted. The owner reviewed the uploaded
+proposal against persistence contracts and SQLite documentation; approval does not
+establish local Git inspection or executable behavior.
+
+Migration/schema upgrades, repair/restore tooling, evidence retention/pruning/archival,
+backup scheduling/destination selection, packaging/runtime supply, ownership
+authentication, specific Steam/Heroic transports,
 synchronization scheduling, process identity mechanisms, and detailed UI design
 remain open. No expiry interval or automatic matching algorithm is selected.
 
@@ -82,9 +99,10 @@ distinct ownership and installation, Steam handoff, and observable states. Heroi
 discovery and delegation follow. Local installation discovery cannot promise a
 complete owned-game library.
 
-The language/runtime, application structure, toolkit, engine, logical mapping and
-physical-design decisions are resolved within those boundaries. Implementation remains outside
-this documentation-only next action. The core must be independently testable
+The language/runtime, application structure, toolkit, engine, logical mapping,
+physical-design and operational-policy decisions are resolved within those
+boundaries. Implementation remains outside this documentation-only next action.
+The core must be independently testable
 without GTK, SQLite, or live launchers; architectural approval does not establish
 reconciliation correctness.
 Blocking discovery, storage operations, and handoff work must stay outside GTK's
