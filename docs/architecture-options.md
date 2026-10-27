@@ -47,10 +47,11 @@ below remain engineering proposals wherever not expressly covered by A–D or th
 subsequent physical-design, operational-policy, migration-policy or initial
 retention-policy approvals.
 
-The next action authorized by this review is documentation only. Architecture
-approval does not authorize implementation, live launcher execution, or public
-push. The 24 synthetic cases remain behavioral requirements and have not become
-executed tests through approval.
+At the A–D review, the next authorized action was documentation only; that review
+did not execute tests. The later owner-authorized
+[offline foundation](executable-foundation.md) implements the core and records
+synthetic results independently. Live launcher execution and public push remain
+outside this milestone.
 
 ## Evaluation basis retained from the proposal
 
@@ -282,9 +283,10 @@ distribution clearance and does not assume a paid Qt license is necessary.
 ## Remaining decisions and work authorization
 
 A–D resolve the language/runtime, application structure, toolkit, and storage-engine
-choices within the recorded boundaries. They do not authorize implementation in
-this documentation-only next step. No application scaffolding, dependency manifests,
-dependency installation, migrations, or live launcher execution belong in this pass.
+choices within the recorded boundaries. The later owner authorization separately
+permits the [offline executable foundation](executable-foundation.md), synthetic
+databases/tests and local commits. It excludes real launcher execution, released
+upgrades, destructive retention, restoration and publication.
 
 Packaging/distribution, ownership API authentication,
 periodic/background synchronization, process-monitoring method, specific launcher
@@ -292,22 +294,22 @@ transports, detailed UI design, archival administration, pruning/cold relocation
 optional-cache cleanup, permanent erasure, automatic cross-store matching,
 and freshness policies remain open.
 Physical schema, canonical protocols and specified guards/sealing now have
-separate design approval; executable correctness and the required serialization
-vectors and guard/conformance validation remain unverified. The separate
+separate design approval. Selected canonical, guard, relational and recovery checks
+now pass; their scope and unverified remainder are recorded in the executable report. The separate
 [operational policy](sqlite-operational-policy.md) has design-level approval;
-its conformance obligations remain unexecuted. The separate
+its full conformance matrix remains incomplete despite selected passing offline checks. The separate
 [migration policy](sqlite-migration-proposal.md) also has design-level approval,
 with metadata approved in principle and independent per-transition review required.
 The separate [initial retention and archival policy](evidence-retention-proposal.md)
 also has design-level approval; all committed structured evidence remains live,
 and validated full copies authorize neither pruning nor relocation.
-Exact application ID, identity/history DDL and artifact-digest rules, released
-compatibility manifests/transitions and guarded-table rebuild mechanisms remain
-open. Backup scheduling, destination/durable-finalization policy and restoration,
+Initial application ID, bootstrap identity/history DDL and artifact digest are
+implemented and recorded in the executable report. Released compatibility
+manifests/transitions and guarded-table rebuild mechanisms remain open. Backup scheduling, destination/durable-finalization policy and restoration,
 repair tooling, and the verified runtime-supply mechanism remain open. Source
 formats and transports still need the
 [integration evidence work](integration-evidence.md). These do not prevent core
-tests or an honest inconclusive process state once implementation is authorized,
+tests or an honest inconclusive process state in the authorized offline foundation,
 but they do limit claims about completed integrations and the persistent desktop
 slice.
 

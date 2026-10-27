@@ -1,6 +1,6 @@
 # Approved evidence retention and archival policy
 
-**Status: Approved at the design level; executable correctness unverified.**
+**Status: Approved initial design; selected offline retention/copy checks now recorded.**
 Originally prepared 2026-10-27 as a documentation-only engineering proposal.
 Owner design-level approval is recorded 2026-10-27 from the explicit instruction
 to record the initial retention and copy-only archival policy, its nonblocking
@@ -15,8 +15,11 @@ The [logical mapping](persistence-mapping.md),
 [migration policy](sqlite-migration-proposal.md) retain their recorded authority.
 Migration approval is documented at design level, with metadata approved in
 principle and independent review required for each actual transition. The existing
-24 [acceptance specifications](acceptance-cases.md) are unchanged and unexecuted.
-No executable correctness has been established.
+24 [acceptance specifications](acceptance-cases.md) remain unchanged and now have
+passing executable translations in the separately owner-authorized
+[offline foundation](executable-foundation.md). Selected retention, backup and
+recovery checks pass; full operational correctness remains unestablished. This
+later execution does not retroactively change the original approval evidence.
 
 ## Decision and provenance boundaries
 
@@ -359,12 +362,13 @@ acceptance suite, executable tests or completed validations.
 | Restore predates manual removal or a durable handoff failure | Disclose missing later history, preserve uncertainty and avoid handoff replay. No inferred new visibility action or invented failure result. |
 
 The initial retention and copy-only archival design-review gate is satisfied.
-The following decisions remain open before implementing the affected function:
+The following administrative/extension decisions remain open; the offline report
+records the caller-selected local copy/finalization mechanism already implemented:
 
 - Archival inventory encoding, artifact identity/digest binding, and validation
   records; the companion inventory above remains a future design recommendation.
-- Backup/archive scheduling, destination selection, rotation, encryption and
-  durable-finalization details, including any retention durations for copies.
+- Backup/archive scheduling, default destination selection, rotation, encryption,
+  general/portable durable-finalization policy and retention durations for copies.
 - Restore and repair administration, compatible release/rule artifact availability,
   and any import or divergent-history reconciliation mechanism.
 - Optional-asset, derived-store and temporary-file ownership, regeneration and
@@ -378,10 +382,12 @@ No age window, pruning mechanism, cold relocation or secure-erasure mechanism is
 approved in advance. Existing migration-specific and packaging/runtime decisions
 remain open under their own approval records.
 
-Implementation still requires separate authorization and the existing
-canonical-vector, guard/conformance, operational and migration validation gates.
-Future retention/archive mechanisms would need their own conformance and
-failure-recovery checks. Documentation review, link checks and diff inspection
+The later executable-foundation instruction separately authorized offline code,
+disposable databases, synthetic checks and local commits. Selected canonical,
+guard, retention and backup checks now pass; the report identifies remaining
+operational and migration validation. Future retention/archive extensions still
+need their own design authority, conformance and failure-recovery checks.
+Documentation review, link checks and diff inspection
 establish consistency only. They do not establish executable correctness or
 publication clearance.
 

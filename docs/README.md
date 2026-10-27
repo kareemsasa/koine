@@ -24,12 +24,16 @@ game configuration and execution.
 9. [Approved migration and schema-upgrade policy](sqlite-migration-proposal.md):
    version compatibility, atomic upgrades, interrupted recovery, unsupported
    databases, and validation before normal operation; design approval only,
-   with metadata approved in principle and executable correctness unverified.
+   with initial bootstrap metadata now implemented and released upgrades
+   unimplemented.
 10. [Approved evidence retention and archival policy](evidence-retention-proposal.md):
     mandatory preservation versus optional retention, deletion eligibility,
     referenced evidence, archival alternatives, manual removal and recovery
     consequences; initial retention and copy-only archival approved at design
     level, with nonblocking limitations and further decisions retained.
+11. [Executable foundation report](executable-foundation.md): implemented modules,
+    all 24 executable acceptance mappings, canonical/database/recovery evidence,
+    implementation decisions, commands, local commits and remaining limitations.
 
 ## Authority and status
 
@@ -50,15 +54,14 @@ Accepted physical choices are recorded below. Contract elaborations include scop
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
-The repository remains documentation only. A–D, the clarified logical mapping,
-the physical SQLite design, the operational policy, the migration policy and the
-initial retention/copy-only archival policy have
-approval within their recorded boundaries. Migration metadata is approved in
-principle. The current action is documentation recording of retention-design
-approval; implementation, database operations, deletion, migration, executable
-tests and publication are not authorized.
-No adapter is implemented, no real Steam/Heroic verification is recorded, and the
-24 synthetic cases remain specifications rather than executed tests.
+The repository now contains the first offline Rust foundation. The owner explicitly
+authorized application/test code, disposable databases, synthetic execution and
+local commits as one milestone. The [implementation report](executable-foundation.md)
+is authoritative for the 58 passing tests, all 24 acceptance translations and
+remaining limitations. The Markdown specifications are unchanged. Real Steam/Heroic
+integration and publication remain unverified and unauthorized for this milestone.
+A–D, logical mapping, physical design, operational, migration and initial retention
+approvals retain their recorded boundaries; test execution does not expand them.
 
 ## Approved architecture and open decisions
 
@@ -86,7 +89,9 @@ specified guard behavior are approved as design. The
 [physical review disposition](sqlite-schema-proposal.md#physical-review-disposition)
 defines the limits and attached requirements: reproducible canonical-serialization
 vectors and guard/conformance checks for incomplete decisions, invalid references,
-post-closure mutations and inconsistent coverage. None has been executed.
+post-closure mutations and inconsistent coverage. Selected offline vectors and
+conformance checks now pass as recorded in the implementation report; exhaustive
+validation remains incomplete.
 
 The [operational approval record](sqlite-operational-policy.md) is authoritative
 for dedicated reader/writer ownership, a bounded writer queue, IMMEDIATE writes,
@@ -97,7 +102,8 @@ threshold are approved initial policy values, not empirically validated settings
 Backup completion must reach `SQLITE_DONE` and yield fairly to ordinary reads;
 transaction failures must preserve commit uncertainty and inspect immutable
 identities before database retry, without replaying launcher submissions.
-These conformance obligations remain unexecuted. The owner reviewed the uploaded
+Selected offline operational checks now pass; the implementation report identifies
+untested fault and stress cases. The owner reviewed the uploaded
 proposal against persistence contracts and SQLite documentation; approval does not
 establish local Git inspection or executable behavior.
 
@@ -128,12 +134,14 @@ guarded-table mechanisms and preservation proofs. Source content must still matc
 the validated safety copy before transformation; failed post-commit reopen/semantic
 validation keeps operation blocked without automatic restore.
 
-Exact application ID, identity/history DDL and artifact-digest rules, released
-compatibility manifests/transitions, backup destination/durable-finalization policy,
-per-transition guarded-table rebuild mechanisms and runtime packaging verification
-remain open. Routine crash recovery remains distinct from migration recovery and
-separately unselected repair/restore tooling. The migration conformance obligations
-remain unexecuted; implementation and publication are not authorized.
+The implementation report records the initial application ID, bootstrap
+identity/history DDL and artifact digest, and local copy finalization mechanism.
+Released compatibility manifests/transitions, general backup administration,
+per-transition guarded-table rebuild mechanisms and distribution runtime
+verification remain open. Routine crash recovery remains distinct from migration
+recovery and separately unselected repair/restore tooling. Released-upgrade
+conformance remains unexecuted; only new-database bootstrap and compatibility
+refusal are implemented. Publication is not authorized.
 
 The first vertical slice remains manual and Steam discovery, persistent records,
 distinct ownership and installation, Steam handoff, and observable states. Heroic
@@ -142,12 +150,12 @@ complete owned-game library.
 
 The language/runtime, application structure, toolkit, engine, logical mapping,
 physical-design, operational-policy, migration-policy and initial retention/archival
-decisions are resolved
-within those boundaries. Implementation remains outside this documentation-only
-next action.
-The core must be independently testable
-without GTK, SQLite, or live launchers; architectural approval does not establish
-reconciliation correctness.
+decisions are resolved within those boundaries. The separately authorized offline
+implementation is recorded in the executable report; real launcher execution and
+publication remain outside its scope.
+The core is independently testable without GTK, SQLite or live launchers. The
+executable report records its selected checks; architectural approval alone does
+not establish reconciliation correctness.
 Blocking discovery, storage operations, and handoff work must stay outside GTK's
 UI thread, with results returned safely for presentation. Remaining consequential
 decisions still need concrete alternatives, tradeoffs, a recommendation, and an
@@ -166,8 +174,8 @@ configuration.
 For documentation changes, review every acceptance case against the contracts,
 check relative links, run `git diff --check`, and inspect the diff for disclosure
 and scope. Do not introduce a programming stack just to execute these cases.
-Later implementations should turn applicable cases into executable tests in the
-approved environment, then separately verify external integration behavior.
+The executable report traces the existing cases to synthetic tests. Maintain that
+mapping as implementation evolves and verify external integration separately.
 
 Local edits, validation, commits, public push, and real integration verification
 are separate events. This work is authorized for local commits. Public push still

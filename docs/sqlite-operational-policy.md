@@ -1,6 +1,6 @@
 # Approved SQLite operational policy
 
-**Status: Approved at the design level; executable behavior unverified.**
+**Status: Approved design; selected offline operational checks now recorded.**
 Recorded 2026-10-27 from the owner's review of the uploaded operational proposal
 at reported repository baseline `5f578cc`. The owner reviewed the proposal against
 Koiné's approved persistence contracts and current SQLite documentation, found no
@@ -13,23 +13,26 @@ design obligations without changing that provenance. It supplements
 [logical mapping](persistence-mapping.md), and the
 [physical schema](sqlite-schema-proposal.md). Their identity, evidence, canonical
 digest, sealing, atomicity, and launch-recovery contracts remain authoritative.
-No separate database service is introduced.
+No separate database service is introduced. The later owner-authorized
+[offline foundation](executable-foundation.md) implements the initial worker model
+and selected checks. The report is authoritative for current executable evidence;
+the full operational fault/stress matrix remains incomplete.
 
 ## Approval decisions
 
 | Area | Approved policy | Remaining validation boundary |
 | --- | --- | --- |
-| Connection ownership | One dedicated writer and one dedicated reader, each exclusively owned by its worker. | Connection confinement and reader availability require conformance checks. |
-| Mutations | Bounded writer queue and serialized, complete semantic transactions. | Backpressure, cancellation, and evidence preservation remain untested. |
-| Write transaction mode | `BEGIN IMMEDIATE`. | Lock acquisition, rollback, and deferred-seal enforcement remain untested. |
-| Journaling | WAL on supported local filesystems; no silent fallback. | Filesystem, locking, shared-memory, and effective configuration need verification. |
-| Durability | `synchronous=FULL`. | Durability depends on SQLite's documented filesystem/hardware assumptions; no crash or power-loss validation has run. |
+| Connection ownership | One dedicated writer and one dedicated reader, each exclusively owned by its worker. | Dedicated worker ownership is implemented; reads during write contention are tested. Full stress validation remains open. |
+| Mutations | Bounded writer queue and serialized, complete semantic transactions. | Serialized/idempotent concurrent writes and evidence preservation pass; queue saturation and writer cancellation remain unverified. |
+| Write transaction mode | `BEGIN IMMEDIATE`. | Selected lock, rollback and deferred-seal checks pass; broader storage-error injection remains open. |
+| Journaling | WAL on supported local filesystems; no silent fallback. | Effective WAL configuration and local ownership are checked; other filesystems/packages remain unverified. |
+| Durability | `synchronous=FULL`. | Durability depends on SQLite's documented filesystem/hardware assumptions; selected process-kill recovery passes, while physical power loss remains untested. |
 | Runtime | A verified SQLite build containing the WAL-reset fix. | Packaging and the mechanism for supplying that runtime remain open. |
 | Contention | Initial five-second cumulative lock-contention budget per database operation, measured with a monotonic clock. | This is an approved initial policy value, not an empirically validated latency setting. |
 | Checkpointing | Passive automatic checkpoints at 1,000 WAL pages, with controlled maintenance. | This is an approved initial threshold, not a tested tuning result or WAL size cap. |
-| Crash recovery | SQLite-managed recovery followed by structural and semantic validation. | Fault handling and recovered conclusions require executable verification. |
-| Backups | Online Backup API with completed-copy and destination validation before success. | Completion, cancellation, fairness, and artifact validation remain untested. |
-| Process ownership | One active Koiné process per database. | Ownership enforcement and second-instance behavior require verification. |
+| Crash recovery | SQLite-managed recovery followed by structural and semantic validation. | Selected intent/result process-kill boundaries pass; the complete fault matrix remains unverified. |
+| Backups | Online Backup API with completed-copy and destination validation before success. | Completion, pre-start cancellation and artifact validation pass; sustained fairness and arbitrary I/O failures remain unverified. |
+| Process ownership | One active Koiné process per database. | Second-owner and symlink-alias rejection pass locally; distribution behavior remains unverified. |
 
 Approval covers design only. The five-second budget and 1,000-page threshold must
 not be described as measured performance settings.
@@ -49,14 +52,16 @@ snapshots promptly.
 A process-lifetime ownership lock, released by the operating system on exit,
 enforces one active Koiné process per database. A second instance fails clearly or
 delegates to the existing instance. SQLite locking remains necessary protection
-against other clients. The specific ownership-lock mechanism is not selected.
+against other clients. The offline foundation uses a process-lifetime File::try_lock on the database file;
+its local ownership and symlink-alias tests pass.
 
 ## Serialized semantic transactions
 
 Route every mutation through the bounded writer queue. Process accepted mutations
 in queue order without treating arrival order as source chronology or authority.
 Queue saturation produces backpressure or explicit rejection; accepted evidence
-must never disappear silently. Queue capacity and channel libraries are not chosen.
+must never disappear silently. The offline foundation selects capacity 32 and standard sync_channel queues;
+saturation/cancellation stress remains part of the incomplete operational matrix.
 
 Acquire write-transaction status before reading database state used to validate a
 mutation. Validate database-dependent assumptions again inside that transaction.
@@ -188,14 +193,17 @@ The owner highlighted two existing obligations without reopening design approval
 backup copying must reach `SQLITE_DONE` and yield fairly to ordinary reads;
 transaction expiry, cancellation and storage errors must preserve commit
 uncertainty, inspect immutable identities before database retry, and never replay
-launcher submissions. Both need explicit executable conformance checks later.
+launcher submissions. Selected completion, cancellation and no-replay checks now pass in the offline
+foundation. Sustained backup fairness and commit-uncertainty fault injection remain
+unverified; the report distinguishes code mechanisms from measured coverage.
 
-Later authorized validation must also demonstrate connection confinement, queue
+Full operational validation must still cover connection confinement, queue
 saturation/cancellation, rollback and deferred-seal enforcement, contention
 deadlines, crash recovery, checkpoint starvation, disk/I/O failures, and
 backup/reopen behavior. These supplement the physical design's canonical vectors
 and guard/conformance obligations. All 24 existing
-[acceptance specifications](acceptance-cases.md) remain unchanged and unexecuted.
+[acceptance specifications](acceptance-cases.md) remain unchanged and now have
+passing executable translations; the report records selected conformance results.
 
 The separately approved [retention policy](evidence-retention-proposal.md) keeps all
 committed structured evidence live and uses validated full archival copies without
@@ -210,8 +218,9 @@ publication are authorized by this approval or its documentation record.
 The separately approved [migration/schema-upgrade policy](sqlite-migration-proposal.md)
 establishes a maintenance gate, whole-path transaction, mandatory validated safety
 copy, interrupted-upgrade recovery and pre-operation validation at design level.
-Metadata is approved in principle; exact identity/history definitions, artifact-digest
-rules, application ID, released compatibility manifests/transitions, backup
+Metadata was approved in principle; initial identity/history DDL, artifact digest
+and application ID are now implemented for unreleased bootstrap. Released
+compatibility manifests/transitions, general backup
 destination/finalization, guarded-table rebuild mechanisms and runtime packaging
 verification remain open. Each actual migration requires independent review.
 Source content must still correspond to the validated backup before transformation;

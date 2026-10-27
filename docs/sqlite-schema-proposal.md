@@ -1,14 +1,16 @@
 # Physical SQLite schema design baseline
 
-**Status: Approved at the design level; executable correctness unverified.**
+**Status: Approved design; selected offline implementation checks recorded separately.**
 Originally prepared 2026-10-26. The owner independently reviewed the uploaded
 revision at reported baseline `e728114` and approved its physical catalog,
 canonical digest protocols, and specified guard/seal behavior. This is a separate
 approval from [A–D](architecture-options.md) and the
 [logical mapping](persistence-mapping.md).
 This document specifies implementation obligations; it is not executable SQL or
-an SQL migration. No database has been created and no executable schema tests have
-run. This approval authorizes recording the decision, not implementation.
+an SQL migration. The later owner-authorized [offline foundation](executable-foundation.md)
+now supplies bootstrap DDL, disposable databases and selected executable checks.
+The original approval authorized design recording only; the later milestone
+supplies implementation authority. Full conformance remains incomplete.
 
 ## Physical review disposition
 
@@ -20,12 +22,12 @@ specification is unchanged by this approval; the review history is retained belo
 
 | Choice | Owner disposition | Remaining boundary |
 | --- | --- | --- |
-| Canonical lowercase UUIDs as TEXT | Accepted | Format/generation enforcement and round-trip behavior are not executed validations. |
+| Canonical lowercase UUIDs as TEXT | Accepted | Selected offline format/round-trip checks pass; see the executable report for scope. |
 | UTC integer microseconds | Accepted | Source time remains distinct from collection time; no ordering authority follows from a timestamp. |
 | Byte-preserving Linux paths as BLOB | Accepted | Path interpretation remains source/context-specific. |
 | STRICT and SQLite minimum 3.37.0 | Accepted as schema baseline | Distribution compatibility still needs verification; no packaging choice follows. |
-| SHA-256 content digests and canonical protocols | Approved at design level | Reproducible canonical-serialization vectors are required; none has been executed. |
-| Deferred decision sealing and specified guards | Approved at design level | Actual DDL, guard/conformance and transactional validation remain required and unperformed. |
+| SHA-256 content digests and canonical protocols | Approved at design level | Independent framing and request/result/decision vectors now pass; exhaustive conformance remains incomplete. |
+| Deferred decision sealing and specified guards | Approved at design level | Bootstrap DDL and selected guard/transactional checks now pass; exhaustive conformance remains incomplete. |
 | Immutable evidence and derived current state | Approved design | No evidence-retention or pruning policy is implied. |
 | Complete physical catalog | Approved at design level | Approval establishes implementation obligations, not executable correctness or implementation authorization. |
 
@@ -42,14 +44,15 @@ The future implementation must verify canonical serialization using reproducible
 test vectors. Guard/conformance tests must demonstrate that incomplete decisions,
 invalid references, post-closure mutations, and inconsistent coverage cannot become
 authoritative. Actual DDL and transactional validation are required before claiming
-executable correctness. These are attached obligations, not completed validations
-or permission to create vectors, tests, code, or databases in this recording step.
-All 24 acceptance specifications remain unchanged and unexecuted.
+executable correctness. These are attached obligations, not claims of exhaustive validation
+or implementation permission from that approval. The later milestone separately
+authorized offline code/databases/tests. All 24 specifications remain unchanged
+and now have passing executable translations; selected guard checks also pass.
 
 The separately approved [SQLite operational policy](sqlite-operational-policy.md)
 selects connection ownership, journal/durability configuration, busy handling,
 checkpointing, crash recovery and backup mechanics at design level. Its conformance
-obligations remain unexecuted. The separate
+obligations have selected offline coverage; the full matrix remains incomplete. The separate
 [migration policy](sqlite-migration-proposal.md) now has design approval, with
 metadata approved in principle and independent review required for each actual
 transition. Its detailed open decisions remain implementation prerequisites.
@@ -61,7 +64,8 @@ backup scheduling/destinations and packaging/runtime supply remain independent
 open decisions. Distribution compatibility remains unverified.
 No authorization to create migrations, Rust code, databases, or run live launcher
 integrations or publish follows from
-the design approval. The current next action is documentation only.
+the design approval alone. The later offline milestone separately authorizes local
+implementation and synthetic tests; live integrations/publication remain excluded.
 
 ## Design choices, retained alternatives, and operational decisions
 
@@ -504,7 +508,8 @@ source entries alone does not equate two accounts, installations, or entitlement
 The specified insertion guard rejects a new edge when a path already exists from
 replacement back to older. The core also validates the whole graph on reading;
 invalid/cyclic stored decisions produce scoped diagnostics and no definitive winner.
-This is an approved guard obligation, not an implemented or tested recursive query.
+This approved guard obligation now has a bootstrap trigger and selected cycle tests
+in the offline foundation; the report identifies the validation limits.
 
 Unordered contradiction creates a dispute decision with conflicting claim links,
 not a supersession. Decision timestamps record reasoning, never source ordering.
@@ -525,9 +530,10 @@ that old evidence was freshly collected.
 
 ## Canonical digest framing and seal verification
 
-**Protocol status: Approved at the design level; executable behavior unverified.**
+**Protocol status: Approved design; independent offline vectors and selected checks pass.**
 The following exact serialization, manifests and verification behavior are approved.
-There are no executable examples, computed digests, or conformance results here.
+The frozen definitions below retain their design authority. Executable vectors and
+selected conformance results are now recorded in the offline foundation report.
 
 ### Byte grammar
 
@@ -684,10 +690,9 @@ is invalid, not a reason to try another manifest until a digest happens to match
    launch. Preserve records for review; repair mechanics remain open.
 
 There is no assumed SQLite SHA-256 function. Guards reject structural mutation;
-the future core performs canonical hashing and semantic verification. The prose
-guard obligations and verification protocol have design approval. SQL
-definitions and executable validation are later implementation work requiring
-separate authorization; none is provided here. Collection-time diagnostics are
+the Rust core performs canonical hashing and semantic verification. The prose
+guard obligations and verification protocol have design approval. SQL definitions and selected validation now exist under the separate milestone
+authorization; this prose remains the approved design specification. Collection-time diagnostics are
 sealed with their result; later read
 diagnostics are returned to the caller and do not append to/reseal a closed bundle.
 Persistent post-closure repair/audit operations are not selected here.
@@ -774,7 +779,7 @@ batching is not included; it would need explicit consistency/coverage rules.
 Connection ownership, write-transaction mode, durability and busy handling are
 separately approved in the [operational policy](sqlite-operational-policy.md).
 Its transaction-uncertainty and no-replay obligations apply without changing the
-atomic boundaries above; executable behavior remains unverified.
+atomic boundaries above. Selected offline checks now pass as recorded in the report; full conformance remains incomplete.
 
 Reconstruction takes a consistent snapshot, supported profile/interpretation
 versions, selected reconciliation and freshness policy versions, assessment time,
@@ -817,8 +822,9 @@ that SQLite has accepted the specified constraints:
 Later validation must check UUID/path/time round trips; every CHECK null branch;
 composite parent-key/collation compatibility; foreign-key enforcement on every
 connection; duplicate-content handling; guard interactions; rollback and recovery;
-identity conflicts; and reconstruction determinism. No such executable work is
-authorized or represented as complete by this document.
+identity conflicts; and reconstruction determinism. The executable report records
+selected completed checks; it does not claim exhaustive coverage or authority for
+live integrations, released migrations or publication.
 
 ## SQLite evidence and remaining gate
 
@@ -841,8 +847,8 @@ Primary documentation inspected for this design:
 
 The physical-design review gate is satisfied. The catalog, canonical protocols and
 specified guard/seal behavior form the approved implementation design baseline.
-Executable correctness remains unverified and subject to the attached reproducible
-serialization vectors and guard/conformance requirements. The
+The executable report records passing independent serialization vectors and
+selected guard/conformance checks. The full required matrix remains incomplete. The
 [operational policy](sqlite-operational-policy.md) separately resolves connection
 ownership, journal/durability settings, busy handling, checkpointing, routine crash
 recovery and backup mechanics as design. The
@@ -854,9 +860,10 @@ copies without pruning or relocation. Migration's detailed open decisions,
 archival administration, pruning/cold relocation, optional-cache cleanup, permanent
 erasure, repair/restore tooling, backup scheduling/destinations/finalization policy
 and packaging/runtime supply remain open. Distribution compatibility is still unverified.
-No current ownership, integration success, executable correctness, or publication
-clearance follows from documenting the schema. Implementation needs separate
-authorization after the relevant design decisions are settled.
+No current ownership, integration success or publication clearance follows from
+documenting the schema. The later milestone separately authorized the offline
+implementation; its measured test results and limitations are recorded in the
+executable report, independently of this design approval.
 
 ## Revision record
 

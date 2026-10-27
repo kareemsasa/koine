@@ -41,39 +41,46 @@ searchable collection without replacing the applications that manage them.
 
 ## Project status
 
-Early architecture and requirements definition.
+The first offline Rust foundation is implemented and locally verified. Its
+[engineering report](docs/executable-foundation.md) maps all 24 unchanged acceptance
+specifications to passing synthetic tests and records 58 passing tests overall,
+canonical vectors, database conformance, process-kill recovery and remaining limits.
+There is no real Steam/Heroic integration or GTK interface yet.
 
-The owner has approved stable Rust (edition 2024, Cargo), an application-local core
-with built-in adapters, bounded workers and serialized state mutations,
-GTK4/libadwaita through Rust bindings, and SQLite with relational separation of
-records and evidence. Standard workers are approved without Tokio initially.
+Approved architecture remains stable Rust (edition 2024, Cargo), a GTK-independent
+application core with built-in adapters and bounded standard workers, serialized
+mutations, SQLite, and GTK4/libadwaita for the eventual interface. The
+[engineering foundation](docs/README.md) and linked approval records retain their
+design authority. Initial retention keeps structured evidence live; validated
+archival copies authorize neither pruning nor relocation.
 
-The [architecture decision record](docs/architecture-options.md) defines A–D's
-approval boundaries. The [physical SQLite design](docs/sqlite-schema-proposal.md)
-is separately approved as the implementation design baseline. The
-[SQLite operational policy](docs/sqlite-operational-policy.md) also has design-level
-approval, including dedicated reader/writer ownership, serialized writes, WAL/FULL,
-a verified WAL-reset-fixed runtime, and initial contention/checkpoint values.
-The [migration and schema-upgrade policy](docs/sqlite-migration-proposal.md) is
-also approved at design level, with metadata approved in principle and independent
-review required for each actual migration. Executable correctness remains
-unverified. Exact application ID, metadata DDL/digest rules, released compatibility
-manifests/transitions, backup destination/finalization, guarded-table rebuild
-mechanisms and runtime packaging verification remain open, alongside general
-backup/restore administration. The
-[evidence retention and archival policy](docs/evidence-retention-proposal.md)
-has design-level approval: retain all committed structured evidence initially and
-use validated full archival copies without removing live records. Storage growth
-and copy duplication are nonblocking design limitations; archival administration,
-cache cleanup, pruning/cold relocation and permanent erasure remain separate open
-decisions. The current action is documentation recording of that approval;
-implementation, database operations, deletion, migration, executable tests, live
-launcher execution and publication are not authorized by it. The 24 acceptance
-specifications remain unchanged and unexecuted.
+The owner's executable-foundation authorization supersedes the earlier
+documentation-only next action. Implementation choices and local results are
+recorded separately from design approvals and live integration evidence. Released
+schema upgrades, restore/repair, destructive retention, authentication, packaging
+and real launcher transports remain outside this implementation.
 
-The [engineering foundation](docs/README.md) defines the domain, discovery and
-reconciliation contracts, launch state semantics, and synthetic acceptance cases.
-These contracts do not select an implementation stack or claim working integrations.
+## Build and exercise offline
+
+Use stable Rust (declared minimum 1.89; tested with 1.99.1) and a local SQLite
+development library/runtime at least 3.51.3. Cargo.lock is committed. After fetching
+dependencies, the checks can run with `--offline`.
+
+```sh
+cargo check --workspace --all-targets
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+scratch=$(mktemp -d)
+cargo run -p koine-cli -- demo "$scratch/demo.sqlite"
+cargo run -p koine-cli -- inspect "$scratch/demo.sqlite"
+```
+
+The demo uses fake discovery and transport evidence only. It persists a definite
+status-127 failure and inconclusive process state. `init` and `demo` require an
+unused destination; `inspect` refuses missing or unsupported databases. The
+[report](docs/executable-foundation.md#limits-and-remaining-work) explains supported
+synthetic semantics, conservative recovery and unverified failure modes.
 
 The repository is intended for eventual public release. Publication requires
 a separate review of licensing, repository contents, and disclosure boundaries.

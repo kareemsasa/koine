@@ -127,26 +127,29 @@ level. This is a separate approval from the logical mapping recorded above, and
 does not establish local Git verification or executable correctness.
 
 The implementation must verify canonical serialization using reproducible vectors
-and demonstrate through guard/conformance checks that incomplete decisions,
-invalid references, post-closure mutations and inconsistent coverage cannot become
-authoritative. These validations have not run. The separately approved
+and enforce complete proofs, valid references, closure and coverage. Selected
+canonical and database checks now pass in the separately authorized
+[offline foundation](executable-foundation.md); that report limits the executable
+claim and identifies untested conformance work. The separately approved
 [SQLite operational policy](sqlite-operational-policy.md) selects connection
 ownership, serialized writes, WAL/FULL, contention/checkpoint values, crash
 recovery and backup mechanics at design level. Its backup completion/reader
-availability and transaction-uncertainty conformance obligations remain unexecuted.
+availability and transaction-uncertainty obligations have selected offline coverage;
+the full stress/fault matrix remains unverified.
 The separately approved [migration policy](sqlite-migration-proposal.md) resolves
 migration strategy at design level, with metadata approved in principle and
-independent review required for each actual transition. Exact application ID,
-identity/history definitions and artifact-digest rules, released compatibility
-manifests/transitions, backup destination/finalization, guarded-table rebuild
-mechanisms and runtime packaging verification remain open. The separately approved
+independent review required for each actual transition. Initial bootstrap metadata,
+application ID and artifact digest are implemented under the milestone authority;
+released transitions, general backup administration, guarded-table rebuild
+mechanisms and distribution runtime verification remain open. The separately approved
 [initial retention and archival policy](evidence-retention-proposal.md) retains all
 committed structured evidence live and uses validated full copies without pruning
 or relocation. Archival administration, pruning/cold relocation, optional-cache
 cleanup, permanent erasure, routine backup scheduling and restoration remain open;
 distribution compatibility remains unverified.
 
-The authorized next step is documentation only. No migrations, Rust code,
-executable tests, live launcher execution, or public push are authorized by this
-design approval. The existing 24 acceptance specifications remain unchanged and
-unexecuted.
+The design approval alone authorized documentation. The later executable-foundation
+instruction separately authorized offline Rust code, disposable databases,
+synthetic tests and local commits. All 24 unchanged Markdown specifications now
+have passing executable translations; this does not authorize released upgrades,
+live launcher execution or publication.

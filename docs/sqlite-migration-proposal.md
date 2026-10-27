@@ -1,6 +1,6 @@
 # Approved SQLite migration and schema-upgrade policy
 
-**Status: Approved at the design level; executable correctness unverified.**
+**Status: Approved migration design; bootstrap/refusal checks executed, released upgrades unimplemented.**
 Originally prepared 2026-10-27 as a documentation-only engineering proposal.
 Owner approval is recorded 2026-10-27 following independent review of the uploaded
 `sqlite-migration-proposal.md` against the approved physical schema, operational
@@ -10,7 +10,9 @@ state or any executable result; no repository baseline was supplied for the revi
 
 The policy originated as engineering recommendations. Owner approval establishes
 the design obligations below without changing that provenance. Migration metadata
-is approved in principle; exact DDL and artifact-digest rules remain open. No
+was approved in principle. Initial DDL, application ID and bootstrap artifact digest
+are now implemented under the later [offline milestone](executable-foundation.md).
+Released upgrades and per-transition review remain separate. No
 migrations, SQL scripts, application code, databases, or executable tests are
 supplied or authorized by this approval or its documentation record.
 
@@ -27,7 +29,7 @@ or packaging/runtime supply.
 | Review area | Owner decision | Approved scope |
 | --- | --- | --- |
 | Version compatibility | Approved | Exact source versions, upgrade paths, schema catalogs, protocols and rule digests. |
-| Migration metadata | Approved in principle | Immutable database identity and append-only committed transition history; exact definitions and artifact-digest rules remain open. |
+| Migration metadata | Approved in principle | Immutable identity and committed transition history; initial bootstrap definitions/digest are now implemented, with released upgrades still subject to independent review. |
 | Transaction boundary | Approved | One atomic transaction for the entire supported upgrade path. |
 | Mandatory safety copy | Approved | Independently validated backup required before transformation. |
 | Interrupted recovery | Approved | Durable database state determines whether migration committed. |
@@ -51,8 +53,9 @@ redesign or authorizing unrestricted schema transformation:
    validation stays blocked. Automatic restoration of the previous copy is not
    authorized; it could discard subsequently committed evidence.
 
-These conditions remain implementation and conformance obligations, not executed
-checks. Implementation authorization and publication clearance remain separate.
+These released-upgrade conditions remain unexecuted obligations. The separate
+offline milestone authorizes bootstrap and synthetic tests, not actual released
+transitions or publication.
 
 ## Approved policy and retained alternatives
 
@@ -99,8 +102,10 @@ enumerated once executable schemas exist.
 ## Migration metadata: approved in principle
 
 The identity/history model below has approval in principle as a separate extension
-to the physical catalog. Initial DDL and artifact-digest rules still require
-review before implementation; no executable definitions are approved here:
+to the physical catalog. The later owner-authorized offline milestone concretizes
+initial bootstrap DDL and
+artifact-digest mechanics in code, as recorded in the executable report. That does
+not approve any released upgrade transition or change the original approval scope:
 
 - One immutable database-identity record with a generated database UUID, family
   identifier and initial schema version. A backup retains this identity; copying
@@ -120,7 +125,8 @@ Use the approved UUID, digest and time encodings. Protect identity and history
 with immutable-record guards. `user_version` is deliberately mutable only within
 bootstrap/upgrade; normal domain operations cannot alter it. No mutable
 “migration in progress” database row or ordinary evidence claim is introduced.
-Exact metadata DDL and artifact-digest framing need review before implementation.
+Initial bootstrap definitions/digest mechanics are recorded in the executable
+report. Each released transition still requires independent review before implementation.
 
 ## Startup compatibility gate and unsupported databases
 
@@ -322,9 +328,9 @@ The design-review gate is satisfied within the approval assessment above. This
 does not approve future migration scripts or authorize implementation. The
 following decisions remain open before implementing the relevant functionality:
 
-- Exact Koiné SQLite `application_id`.
-- Initial database identity/history DDL and artifact-digest rules.
-- Released schema compatibility manifests and supported transitions.
+- Released schema compatibility manifests and supported transitions; the initial
+  application ID, identity/history DDL and bootstrap artifact digest are already
+  implemented for the unreleased offline foundation.
 - Backup destination and durable-finalization policy.
 - Per-transition mechanisms for rebuilding guarded tables, with independently
   reviewed records, transformations, constraints, guards and preservation proofs.
@@ -339,9 +345,11 @@ not widen migration permissions or approve a future transition or guard exceptio
 
 Documentation checks establish only consistency, links, scope and formatting.
 Canonical serialization vectors, physical guard/conformance checks, operational
-conformance and the migration fault matrix remain unexecuted. No implementation,
-database creation, runtime success, live integration, commit or publication is
-claimed by this policy or the approval record.
+conformance have selected offline results in the executable report. The released
+migration fault matrix remains unexecuted. This design approval alone claims no
+implementation or execution; the later milestone supplies separate local evidence
+for new-database bootstrap, compatibility refusal and ordinary crash boundaries.
+No released upgrade, live integration or publication is claimed.
 
 ## Primary references and limits
 
