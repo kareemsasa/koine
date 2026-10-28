@@ -1,7 +1,9 @@
 # Milestone 2 — storage resilience and offline Steam discovery
 
 Recorded 2026-10-27. **Implemented, locally executed and committed; no live launcher
-integration or publication.** Starting HEAD was `de3d8ba` on `main`, with an empty
+integration or publication.** The [Milestone 3 report](controlled-steam.md) supersedes
+current-capability and next-step statements below where it records further work;
+this dated checkpoint remains unchanged. Starting HEAD was `de3d8ba` on `main`, with an empty
 working tree. The owner's Milestone 2 instruction authorized application changes,
 synthetic fixtures, disposable fault databases, local tests and local commits.
 The [first milestone report](executable-foundation.md) remains historical evidence;
