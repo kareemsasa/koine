@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Koiné refuses SQLite runtimes older than 3.51.3. Arch Linux supplies one;
+    # the image digest and the dated archive snapshot pin the whole toolchain.
+    container:
+      image: archlinux:base-devel@sha256:624bdc7fc6615155d67bc34cf7146c0c9fd0e3c92943977da63a630e4ca49c30
+    env:
+      ARCH_SNAPSHOT: "2026/10/27"
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Install pinned toolchain
+        run: |
+          echo "Server = https://archive.archlinux.org/repos/${ARCH_SNAPSHOT}/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm --needed git python rust sqlite
+          useradd --create-home builder
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Report toolchain
+        run: |
+          rustc --version
+          cargo --version
+          sqlite3 --version
+          python3 --version
+
+      # Permission-refusal tests are meaningless as root, so run unprivileged.
+      - name: Run repository checks
+        run: |
+          chown -R builder: .
+          runuser -u builder -- env HOME=/home/builder ./tools/ci_checks.sh
