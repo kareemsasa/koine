@@ -7,18 +7,18 @@ use std::{collections::BTreeSet, sync::Mutex};
 pub fn plan(owner: &str, root: &Root, delivery: String, at: i64) -> Result<Plan> {
     config::uuid(&delivery)?;
     Ok(Plan {
-        profile: if root.synthetic {
+        profile: if root.synthetic() {
             Profile::SyntheticV2
         } else {
             Profile::RealV2
         },
-        boundary: Some(fixture_fs::bytes(&root.path)),
+        boundary: Some(fixture_fs::bytes(root.path())),
         physical_binding: None,
         delivery,
         fixture: owner.into(),
         at,
         roots: vec![LibraryRoot {
-            key: root.scope.clone(),
+            key: root.scope().into(),
             relative: Some(PathBuf::new()),
             issue: None,
         }],
@@ -56,24 +56,24 @@ pub fn scan(
 ) -> Result<Report> {
     if !plan.profile.controlled()
         || plan.roots.len() != 1
-        || plan.roots[0].key != root.scope
-        || plan.boundary.as_ref() != Some(&fixture_fs::bytes(&root.path))
+        || plan.roots[0].key != root.scope()
+        || plan.boundary.as_ref() != Some(&fixture_fs::bytes(root.path()))
     {
         return Err("configured request mismatch".into());
     }
     {
         let configured = settings.lock().map_err(|_| "settings lock poisoned")?;
-        if configured.owner != plan.fixture
-            || !configured.roots.iter().any(|r| {
-                r.id == root.id
-                    && r.scope == root.scope
-                    && r.path == root.path
-                    && r.layout == root.layout
-                    && r.synthetic == root.synthetic
-                    && r.authorized == root.authorized
+        if configured.owner() != plan.fixture
+            || !configured.roots().iter().any(|r| {
+                r.id() == root.id()
+                    && r.scope() == root.scope()
+                    && r.path() == root.path()
+                    && r.layout() == root.layout()
+                    && r.synthetic() == root.synthetic()
+                    && r.authorized() == root.authorized()
             })
             || plan.profile
-                != if root.synthetic {
+                != if root.synthetic() {
                     Profile::SyntheticV2
                 } else {
                     Profile::RealV2
@@ -85,20 +85,20 @@ pub fn scan(
     if cancel.load(Ordering::Relaxed) {
         return Ok(gap(plan, "cancelled".into()));
     }
-    if !root.synthetic && !root.authorized {
+    if !root.synthetic() && !root.authorized() {
         return Ok(gap(plan, "explicit-root-authorization-required".into()));
     }
-    if !["native", "flatpak"].contains(&root.layout.as_str()) {
+    if !["native", "flatpak"].contains(&root.layout()) {
         return Ok(gap(plan, "unsupported-package-layout".into()));
     }
-    let opened = if root.synthetic {
-        FixtureFs::open(&root.path).map(|mut fs| {
+    let opened = if root.synthetic() {
+        FixtureFs::open(root.path()).map(|mut fs| {
             fs.confined = true;
             fs.id = plan.fixture.clone();
             fs
         })
     } else {
-        FixtureFs::boundary(&root.path, plan.fixture.clone())
+        FixtureFs::boundary(root.path(), plan.fixture.clone())
     };
     let fs = match opened {
         Ok(fs) => fs,
@@ -108,7 +108,7 @@ pub fn scan(
     if let Err(e) = settings
         .lock()
         .map_err(|_| "settings lock poisoned")?
-        .bind(&root.scope, &identity)
+        .bind(root.scope(), &identity)
     {
         return Ok(gap(plan, e));
     }
@@ -137,7 +137,7 @@ pub fn scan(
                     .and_then(|v| v.text())
                     .and_then(|v| config::normalize(Path::new(v)))
                 {
-                    Ok(path) if path == root.path => (),
+                    Ok(path) if path == root.path() => (),
                     Ok(_) => plan
                         .index_issues
                         .push("referenced-library-not-inspected-needs-separate-scope".into()),
@@ -154,7 +154,7 @@ pub fn scan(
     }
     // Reopen only the same authorized path without following links; a replaced/missing
     // mount cannot turn a descriptor to an old detached directory into full coverage.
-    if FixtureFs::boundary(&root.path, report.plan.fixture.clone())
+    if FixtureFs::boundary(root.path(), report.plan.fixture.clone())
         .and_then(|f| f.identity())
         .ok()
         .as_ref()

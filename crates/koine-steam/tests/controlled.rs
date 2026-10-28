@@ -50,9 +50,9 @@ impl Lab {
         self.settings
             .lock()
             .unwrap()
-            .roots
+            .roots()
             .iter()
-            .find(|r| r.id == rid)
+            .find(|r| r.id() == rid)
             .unwrap()
             .clone()
     }
@@ -63,7 +63,7 @@ impl Lab {
         progress: &mut dyn FnMut(usize),
     ) -> Report {
         let root = self.root(rid);
-        let owner = self.settings.lock().unwrap().owner.clone();
+        let owner = self.settings.lock().unwrap().owner().to_string();
         let plan = controlled::plan(&owner, &root, id(), 10).unwrap();
         integration::register(&self.store, &plan).unwrap();
         controlled::scan(
@@ -118,8 +118,8 @@ fn configuration_is_metadata_only_normalized_private_and_reopens() {
         .unwrap();
     assert!(!missing.exists());
     let settings = Configuration::open(&lab.store, &lab.db).unwrap();
-    assert_eq!(settings.roots[0].path, missing);
-    assert!(!settings.roots[0].authorized);
+    assert_eq!(settings.roots()[0].path(), missing);
+    assert!(!settings.roots()[0].authorized());
     let sidecar = PathBuf::from(format!("{}.steam-roots.koin", lab.db.display()));
     assert_eq!(
         fs::metadata(sidecar).unwrap().permissions().mode() & 0o777,
@@ -145,7 +145,7 @@ fn duplicate_spelling_and_config_limit_are_explicit() {
         lab.settings
             .lock()
             .unwrap()
-            .set(&id(), &root.path.join("./"), "native", true)
+            .set(&id(), &root.path().join("./"), "native", true)
             .is_err()
     );
     for i in 1..16 {
@@ -172,7 +172,7 @@ fn duplicate_spelling_and_config_limit_are_explicit() {
 fn real_mode_requires_exact_authorization_and_configuration_change_revokes_it() {
     let lab = Lab::new();
     let r = lab.add("root", "native");
-    let path = lab.root(&r).path;
+    let path = lab.root(&r).path().to_path_buf();
     manifest(&path, 42, "4");
     lab.settings
         .lock()
@@ -194,7 +194,7 @@ fn real_mode_requires_exact_authorization_and_configuration_change_revokes_it() 
         0
     );
     // Only application settings are exercised here; no real-mode scan is authorized.
-    let scope = lab.root(&r).scope;
+    let scope = lab.root(&r).scope().to_string();
     assert!(
         lab.settings
             .lock()
@@ -203,14 +203,14 @@ fn real_mode_requires_exact_authorization_and_configuration_change_revokes_it() 
             .is_err()
     );
     lab.settings.lock().unwrap().authorize(&r, &path).unwrap();
-    assert!(Configuration::open(&lab.store, &lab.db).unwrap().roots[0].authorized);
+    assert!(Configuration::open(&lab.store, &lab.db).unwrap().roots()[0].authorized());
     lab.settings
         .lock()
         .unwrap()
         .set(&r, &path, "flatpak", false)
         .unwrap();
-    assert!(!lab.root(&r).authorized);
-    assert_ne!(scope, lab.root(&r).scope);
+    assert!(!lab.root(&r).authorized());
+    assert_ne!(scope, lab.root(&r).scope());
 }
 #[test]
 fn native_and_flatpak_explicit_library_layouts_share_versioned_manifest_semantics() {
@@ -224,7 +224,7 @@ fn native_and_flatpak_explicit_library_layouts_share_versioned_manifest_semantic
         let lab = Lab::new();
         let r = lab.add(name, layout);
         let root = lab.root(&r);
-        manifest(&root.path, 42, "4");
+        manifest(root.path(), 42, "4");
         let report = lab.run(&r);
         assert_eq!(report.outcome(), "complete");
         let s = lab.store.snapshot().unwrap();
@@ -247,8 +247,8 @@ fn multiple_configured_roots_reconcile_distinct_installations_and_reopen() {
     let lab = Lab::new();
     let a = lab.add("one", "native");
     let b = lab.add("two", "flatpak");
-    manifest(&lab.root(&a).path, 42, "4");
-    manifest(&lab.root(&b).path, 42, "1048576");
+    manifest(lab.root(&a).path(), 42, "4");
+    manifest(lab.root(&b).path(), 42, "1048576");
     let scheduler = Scheduler::new(lab.store.clone(), lab.settings.clone(), &lab.db, 10).unwrap();
     let t = scheduler.refresh(id(), 10, &[]).unwrap();
     assert_eq!(t.wait().state, State::Complete);
@@ -270,14 +270,14 @@ fn unapproved_external_and_internal_references_are_never_expanded() {
     let lab = Lab::new();
     let r = lab.add("one", "native");
     let root = lab.root(&r);
-    let internal = root.path.join("library B");
+    let internal = root.path().join("library B");
     fixture(&internal);
     let outside = lab._dir.path().join("outside");
     fixture(&outside);
     manifest(&internal, 99, "4");
     manifest(&outside, 100, "4");
-    manifest(&root.path, 42, "4");
-    index(&root.path, &[root.path.clone(), internal, outside]);
+    manifest(root.path(), 42, "4");
+    index(root.path(), &[root.path().to_path_buf(), internal, outside]);
     let report = lab.run(&r);
     assert_eq!(report.roots.len(), 1);
     assert_eq!(report.roots[0].observations.len(), 1);
@@ -299,14 +299,14 @@ fn root_and_steamapps_symlinks_are_refused() {
         let lab = Lab::new();
         let r = lab.add("one", "native");
         let root = lab.root(&r);
-        manifest(&root.path, 42, "4");
+        manifest(root.path(), 42, "4");
         let outside = lab._dir.path().join("renamed");
         if kind == "root" {
-            fs::rename(&root.path, &outside).unwrap();
-            symlink(&outside, &root.path).unwrap();
+            fs::rename(root.path(), &outside).unwrap();
+            symlink(&outside, root.path()).unwrap();
         } else {
-            fs::rename(root.path.join("steamapps"), &outside).unwrap();
-            symlink(&outside, root.path.join("steamapps")).unwrap();
+            fs::rename(root.path().join("steamapps"), &outside).unwrap();
+            symlink(&outside, root.path().join("steamapps")).unwrap();
         }
         let report = lab.run(&r);
         assert!(report.roots[0].observations.is_empty());
@@ -322,22 +322,22 @@ fn manifest_and_index_symlinks_and_game_directory_links_cannot_expand_scope() {
     let lab = Lab::new();
     let r = lab.add("one", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 42, "4");
+    manifest(root.path(), 42, "4");
     let outside = lab._dir.path().join("outside");
     fixture(&outside);
     manifest(&outside, 99, "4");
     symlink(
         outside.join("steamapps/appmanifest_99.acf"),
-        root.path.join("steamapps/appmanifest_99.acf"),
+        root.path().join("steamapps/appmanifest_99.acf"),
     )
     .unwrap();
-    fs::remove_file(root.path.join("steamapps/libraryfolders.vdf")).unwrap();
+    fs::remove_file(root.path().join("steamapps/libraryfolders.vdf")).unwrap();
     symlink(
         outside.join("steamapps/libraryfolders.vdf"),
-        root.path.join("steamapps/libraryfolders.vdf"),
+        root.path().join("steamapps/libraryfolders.vdf"),
     )
     .unwrap();
-    symlink(&outside, root.path.join("steamapps/common")).unwrap();
+    symlink(&outside, root.path().join("steamapps/common")).unwrap();
     let report = lab.run(&r);
     assert_eq!(report.roots[0].observations.len(), 1);
     assert_eq!(report.outcome(), "partial");
@@ -349,7 +349,7 @@ fn unavailable_mount_and_access_failures_preserve_known_claims() {
         let lab = Lab::new();
         let r = lab.add("root", "native");
         let root = lab.root(&r);
-        manifest(&root.path, 42, "4");
+        manifest(root.path(), 42, "4");
         lab.run(&r);
         let before = lab
             .store
@@ -359,10 +359,10 @@ fn unavailable_mount_and_access_failures_preserve_known_claims() {
             .cloned()
             .collect::<Vec<_>>();
         if action == "missing" {
-            fs::rename(&root.path, lab._dir.path().join("detached")).unwrap();
+            fs::rename(root.path(), lab._dir.path().join("detached")).unwrap();
         } else {
             fs::set_permissions(
-                root.path.join("steamapps"),
+                root.path().join("steamapps"),
                 fs::Permissions::from_mode(0o000),
             )
             .unwrap();
@@ -395,7 +395,7 @@ fn unavailable_mount_and_access_failures_preserve_known_claims() {
         );
         if action == "unreadable" {
             fs::set_permissions(
-                root.path.join("steamapps"),
+                root.path().join("steamapps"),
                 fs::Permissions::from_mode(0o755),
             )
             .unwrap();
@@ -415,11 +415,11 @@ fn replaced_root_requires_reconfiguration_instead_of_reusing_installation_identi
     let lab = Lab::new();
     let r = lab.add("root", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 42, "4");
+    manifest(root.path(), 42, "4");
     lab.run(&r);
-    fs::rename(&root.path, lab._dir.path().join("old-root")).unwrap();
-    fixture(&root.path);
-    manifest(&root.path, 99, "4");
+    fs::rename(root.path(), lab._dir.path().join("old-root")).unwrap();
+    fixture(root.path());
+    manifest(root.path(), 99, "4");
     let report = lab.run(&r);
     assert_eq!(
         report.roots[0].diagnostics[0].code,
@@ -434,7 +434,7 @@ fn replaced_root_requires_reconfiguration_instead_of_reusing_installation_identi
 fn unsupported_packages_and_old_or_malformed_indexes_have_explicit_limits() {
     let lab = Lab::new();
     let r = lab.add("snap", "snap");
-    manifest(&lab.root(&r).path, 42, "4");
+    manifest(lab.root(&r).path(), 42, "4");
     let report = lab.run(&r);
     assert_eq!(
         report.roots[0].diagnostics[0].code,
@@ -447,9 +447,9 @@ fn unsupported_packages_and_old_or_malformed_indexes_have_explicit_limits() {
     ] {
         let lab = Lab::new();
         let r = lab.add("root", "native");
-        manifest(&lab.root(&r).path, 42, "4");
+        manifest(lab.root(&r).path(), 42, "4");
         fs::write(
-            lab.root(&r).path.join("steamapps/libraryfolders.vdf"),
+            lab.root(&r).path().join("steamapps/libraryfolders.vdf"),
             index_bytes,
         )
         .unwrap();
@@ -461,16 +461,16 @@ fn malformed_unreadable_incomplete_and_unknown_manifests_keep_independent_observ
     let lab = Lab::new();
     let r = lab.add("root", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 41, "4");
-    manifest(&root.path, 42, "1048576");
-    manifest(&root.path, 43, "2147483648");
-    manifest(&root.path, 44, "4");
+    manifest(root.path(), 41, "4");
+    manifest(root.path(), 42, "1048576");
+    manifest(root.path(), 43, "2147483648");
+    manifest(root.path(), 44, "4");
     fs::set_permissions(
-        root.path.join("steamapps/appmanifest_44.acf"),
+        root.path().join("steamapps/appmanifest_44.acf"),
         fs::Permissions::from_mode(0o000),
     )
     .unwrap();
-    fs::write(root.path.join("steamapps/appmanifest_45.acf"), "broken").unwrap();
+    fs::write(root.path().join("steamapps/appmanifest_45.acf"), "broken").unwrap();
     let report = lab.run(&r);
     assert_eq!(report.roots[0].observations.len(), 3);
     assert_eq!(
@@ -495,8 +495,8 @@ fn cancellation_before_scan_and_after_one_valid_observation_is_durable() {
         let lab = Lab::new();
         let r = lab.add("root", "native");
         let root = lab.root(&r);
-        manifest(&root.path, 41, "4");
-        manifest(&root.path, 42, "4");
+        manifest(root.path(), 41, "4");
+        manifest(root.path(), 42, "4");
         let cancel = Arc::new(AtomicBool::new(!after));
         let c = cancel.clone();
         let report = lab.report(&r, cancel, &mut |_| {
@@ -521,7 +521,7 @@ fn duplicate_request_and_result_never_rescan_or_refresh_evidence_time() {
     let lab = Lab::new();
     let r = lab.add("root", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 42, "4");
+    manifest(root.path(), 42, "4");
     let scheduler = Scheduler::new(lab.store.clone(), lab.settings.clone(), &lab.db, 10).unwrap();
     let request = id();
     assert_eq!(
@@ -534,7 +534,7 @@ fn duplicate_request_and_result_never_rescan_or_refresh_evidence_time() {
     );
     let expected = lab.store.snapshot().unwrap();
     fs::write(
-        root.path.join("steamapps/appmanifest_42.acf"),
+        root.path().join("steamapps/appmanifest_42.acf"),
         "now invalid",
     )
     .unwrap();
@@ -554,7 +554,7 @@ fn byte_and_directory_entry_bounds_are_coverage_gaps() {
     let r = lab.add("root", "native");
     let root = lab.root(&r);
     for i in 0..8193 {
-        fs::write(root.path.join(format!("steamapps/ignored{i}")), b"").unwrap();
+        fs::write(root.path().join(format!("steamapps/ignored{i}")), b"").unwrap();
     }
     let report = lab.run(&r);
     assert!(
@@ -568,7 +568,7 @@ fn byte_and_directory_entry_bounds_are_coverage_gaps() {
     let r = lab.add("root", "native");
     let root = lab.root(&r);
     fs::write(
-        root.path.join("steamapps/appmanifest_42.acf"),
+        root.path().join("steamapps/appmanifest_42.acf"),
         vec![b'x'; 1_048_577],
     )
     .unwrap();
@@ -585,9 +585,9 @@ fn delivery_order_does_not_choose_between_unordered_manifest_revisions() {
     let lab = Lab::new();
     let r = lab.add("root", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 42, "4");
+    manifest(root.path(), 42, "4");
     let a = lab.report(&r, Arc::new(AtomicBool::new(false)), &mut |_| {});
-    manifest(&root.path, 42, "1048576");
+    manifest(root.path(), 42, "1048576");
     let b = lab.report(&r, Arc::new(AtomicBool::new(false)), &mut |_| {});
     integration::apply(&lab.store, &b).unwrap();
     integration::apply(&lab.store, &a).unwrap();
@@ -613,7 +613,7 @@ fn scan_byte_budget_stops_with_valid_positives_and_no_negative_authority() {
     let root = lab.root(&r);
     let padding = "x".repeat(900_000);
     for app in 100..120 {
-        fs::write(root.path.join(format!("steamapps/appmanifest_{app}.acf")),format!("\"AppState\" {{\"appid\" \"{app}\" \"name\" \"Synthetic\" \"installdir\" \"Synthetic\" \"StateFlags\" \"4\" \"ignored\" \"{padding}\"}}")).unwrap();
+        fs::write(root.path().join(format!("steamapps/appmanifest_{app}.acf")),format!("\"AppState\" {{\"appid\" \"{app}\" \"name\" \"Synthetic\" \"installdir\" \"Synthetic\" \"StateFlags\" \"4\" \"ignored\" \"{padding}\"}}")).unwrap();
     }
     let report = lab.run(&r);
     assert_eq!(report.outcome(), "partial");
@@ -639,13 +639,13 @@ fn root_replacement_during_scan_retains_positives_and_marks_coverage_partial() {
     let lab = Lab::new();
     let r = lab.add("root", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 41, "4");
-    manifest(&root.path, 42, "4");
+    manifest(root.path(), 41, "4");
+    manifest(root.path(), 42, "4");
     let report = lab.report(&r, Arc::new(AtomicBool::new(false)), &mut |count| {
         if count == 1 {
-            fs::rename(&root.path, lab._dir.path().join("detached")).unwrap();
-            fixture(&root.path);
-            manifest(&root.path, 99, "4");
+            fs::rename(root.path(), lab._dir.path().join("detached")).unwrap();
+            fixture(root.path());
+            manifest(root.path(), 99, "4");
         }
     });
     assert_eq!(report.outcome(), "partial");
@@ -667,7 +667,7 @@ fn explicit_remove_and_reconfigure_rotates_scope_without_erasing_historical_loca
     let lab = Lab::new();
     let r = lab.add("first", "native");
     let root = lab.root(&r);
-    manifest(&root.path, 42, "4");
+    manifest(root.path(), 42, "4");
     lab.run(&r);
     lab.settings.lock().unwrap().remove(&r).unwrap();
     let path = lab._dir.path().join("second");
@@ -685,18 +685,18 @@ fn explicit_remove_and_reconfigure_rotates_scope_without_erasing_historical_loca
         c.is("dimension", "location")
             && c.get("value_bytes")
                 .blob()
-                .is_ok_and(|b| b.starts_with(root.path.as_os_str().as_encoded_bytes()))
+                .is_ok_and(|b| b.starts_with(root.path().as_os_str().as_encoded_bytes()))
     }));
     let settings = Configuration::open(&lab.store, &lab.db).unwrap();
-    assert_ne!(settings.roots[0].scope, root.scope);
+    assert_ne!(settings.roots()[0].scope(), root.scope());
 }
 #[test]
 fn request_uuid_is_bound_to_exact_root_set_and_time_across_restarts() {
     let lab = Lab::new();
     let a = lab.add("a", "native");
     let b = lab.add("b", "native");
-    manifest(&lab.root(&a).path, 42, "4");
-    manifest(&lab.root(&b).path, 43, "4");
+    manifest(lab.root(&a).path(), 42, "4");
+    manifest(lab.root(&b).path(), 43, "4");
     let request = id();
     let scheduler = Scheduler::new(lab.store.clone(), lab.settings.clone(), &lab.db, 10).unwrap();
     assert_eq!(

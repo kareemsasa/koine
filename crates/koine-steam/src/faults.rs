@@ -20,7 +20,7 @@ pub fn crash_probe(database: &Path, fixture: &Path, phase: &str) -> Result<()> {
         .set(&rid, fixture, "native", true)?;
     let (owner, root) = {
         let c = settings.lock().unwrap();
-        (c.owner.clone(), c.roots[0].clone())
+        (c.owner().to_string(), c.roots()[0].clone())
     };
     let plan = controlled::plan(&owner, &root, id(), 10)?;
     integration::register(&store, &plan)?;

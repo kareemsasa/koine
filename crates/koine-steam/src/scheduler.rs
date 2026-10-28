@@ -99,7 +99,7 @@ fn attempt_id(request: &str, root: &Root, multiple: bool) -> String {
         return request.into();
     }
     let mut bytes =
-        canonical::hash(format!("koine.steam.attempt.v1:{request}:{}", root.scope).as_bytes());
+        canonical::hash(format!("koine.steam.attempt.v1:{request}:{}", root.scope()).as_bytes());
     bytes[6] = (bytes[6] & 15) | 64;
     bytes[8] = (bytes[8] & 63) | 128;
     let s = hex(&bytes[..16]);
@@ -174,7 +174,7 @@ impl Scheduler {
         let (owner, mut roots) = {
             let settings = self.settings.lock().map_err(|_| "settings poisoned")?;
             let roots: Vec<_> = if root_ids.is_empty() {
-                settings.roots.clone()
+                settings.roots().to_vec()
             } else {
                 let mut unique = BTreeSet::new();
                 let mut roots = Vec::new();
@@ -184,16 +184,16 @@ impl Scheduler {
                     }
                     roots.push(
                         settings
-                            .roots
+                            .roots()
                             .iter()
-                            .find(|r| &r.id == id)
+                            .find(|r| r.id() == id)
                             .ok_or("unknown configured root")?
                             .clone(),
                     );
                 }
                 roots
             };
-            (settings.owner.clone(), roots)
+            (settings.owner().to_string(), roots)
         };
         if roots.len() > config::ROOT_LIMIT {
             return Err("configured root limit exceeded".into());
@@ -201,7 +201,7 @@ impl Scheduler {
         if roots.is_empty() {
             return Err("no configured roots".into());
         }
-        roots.sort_by(|a, b| a.id.cmp(&b.id));
+        roots.sort_by(|a, b| a.id().cmp(b.id()));
         let mut q = self.shared.queue.lock().map_err(|_| "scheduler poisoned")?;
         if q.stopping {
             return Err("scheduler stopping".into());
@@ -217,7 +217,7 @@ impl Scheduler {
                 || roots.iter().any(|r| {
                     scopes
                         .iter()
-                        .any(|(scope, path)| scope == &r.scope || path == &r.path)
+                        .any(|(scope, path)| scope == r.scope() || path == r.path())
                 })
         }) {
             return Err(
@@ -245,12 +245,12 @@ impl Scheduler {
                     .iter()
                     .map(|r| {
                         Value::List(vec![
-                            r.id.clone().into(),
-                            r.scope.clone().into(),
-                            fixture_fs::bytes(&r.path).into(),
-                            r.layout.clone().into(),
-                            i64::from(r.synthetic).into(),
-                            i64::from(r.authorized).into(),
+                            r.id().into(),
+                            r.scope().into(),
+                            fixture_fs::bytes(r.path()).into(),
+                            r.layout().into(),
+                            i64::from(r.synthetic()).into(),
+                            i64::from(r.authorized()).into(),
                         ])
                     })
                     .collect(),
@@ -280,7 +280,10 @@ impl Scheduler {
         };
         q.occupied.push((
             request,
-            roots.into_iter().map(|r| (r.scope, r.path)).collect(),
+            roots
+                .into_iter()
+                .map(|r| (r.scope().to_string(), r.path().to_path_buf()))
+                .collect(),
         ));
         q.waiting.push_back(Job {
             attempts,
@@ -643,11 +646,11 @@ mod tests {
         let lab = Lab::new();
         let r = lab.add("root");
         let root = lab.root(&r);
-        let plan = controlled::plan(&lab.settings.lock().unwrap().owner, &root, id(), 10).unwrap();
+        let plan = controlled::plan(lab.settings.lock().unwrap().owner(), &root, id(), 10).unwrap();
         integration::register(&lab.store, &plan).unwrap();
         let pending = lab.store.snapshot().unwrap();
         assert_eq!(pending.rows("collection_closures").count(), 0);
-        std::fs::remove_dir_all(&root.path).unwrap();
+        std::fs::remove_dir_all(root.path()).unwrap();
         let db = lab.db.clone();
         drop(lab.store);
         let store = Arc::new(Store::open(&db).unwrap());
@@ -678,7 +681,7 @@ mod writer_recovery_tests {
         let lab = Lab::fault();
         let r = lab.add("root");
         let root = lab.root(&r);
-        std::fs::write(root.path.join("steamapps/appmanifest_41.acf"),format!("\"AppState\" {{\"appid\" \"41\" \"installdir\" \"Synthetic\" \"name\" \"{}\" \"StateFlags\" \"4\"}}","S".repeat(500_000))).unwrap();
+        std::fs::write(root.path().join("steamapps/appmanifest_41.acf"),format!("\"AppState\" {{\"appid\" \"41\" \"installdir\" \"Synthetic\" \"name\" \"{}\" \"StateFlags\" \"4\"}}","S".repeat(500_000))).unwrap();
         let limit = Arc::new(Mutex::new(None));
         let saved = limit.clone();
         let store = lab.store.clone();
@@ -718,7 +721,7 @@ mod writer_recovery_tests {
         lab.store
             .fault_limit_pages(limit.lock().unwrap().unwrap() + 4096)
             .unwrap();
-        std::fs::remove_dir_all(root.path).unwrap();
+        std::fs::remove_dir_all(root.path()).unwrap();
         scheduler.recover(12).unwrap();
         assert_eq!(
             lab.store

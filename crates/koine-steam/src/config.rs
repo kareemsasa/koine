@@ -9,21 +9,48 @@ use std::{
 };
 pub const ROOT_LIMIT: usize = 16;
 const MAX_CONFIG: u64 = 128 * 1024;
+/// A configured root snapshot. Fields are private so approval, binding and scope
+/// change only through `Configuration` methods that persist them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Root {
-    pub id: String,
-    pub scope: String,
-    pub path: PathBuf,
-    pub layout: String,
-    pub synthetic: bool,
-    pub authorized: bool,
-    pub binding: Option<String>,
+    id: String,
+    scope: String,
+    path: PathBuf,
+    layout: String,
+    synthetic: bool,
+    authorized: bool,
+    binding: Option<String>,
 }
+impl Root {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+    pub fn scope(&self) -> &str {
+        &self.scope
+    }
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+    pub fn layout(&self) -> &str {
+        &self.layout
+    }
+    pub fn synthetic(&self) -> bool {
+        self.synthetic
+    }
+    pub fn authorized(&self) -> bool {
+        self.authorized
+    }
+    pub fn binding(&self) -> Option<&str> {
+        self.binding.as_deref()
+    }
+}
+/// Read access is public; every mutation goes through `set`, `authorize`, `remove`
+/// or `bind`, each of which persists before updating the in-memory roots.
 #[derive(Debug)]
 pub struct Configuration {
     path: PathBuf,
-    pub owner: String,
-    pub roots: Vec<Root>,
+    owner: String,
+    roots: Vec<Root>,
 }
 pub fn normalize(path: &Path) -> Result<PathBuf> {
     if !path.is_absolute() || fixture_fs::bytes(path).len() > 4096 {
@@ -81,6 +108,12 @@ pub(crate) fn boolean(value: &Value) -> Result<bool> {
     }
 }
 impl Configuration {
+    pub fn owner(&self) -> &str {
+        &self.owner
+    }
+    pub fn roots(&self) -> &[Root] {
+        &self.roots
+    }
     /// Caller must retain the Store ownership lock for this settings object's lifetime.
     pub fn open(store: &Store, database: &Path) -> Result<Self> {
         let mut path = fs::canonicalize(database)

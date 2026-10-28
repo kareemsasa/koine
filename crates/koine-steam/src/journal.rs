@@ -412,7 +412,7 @@ mod tests {
         assert_eq!(parse(&wire(&report)).unwrap(), report);
         let journal = Journal::open(&lab.db).unwrap();
         journal.save(&report).unwrap();
-        std::fs::remove_dir_all(&lab.root(&root).path).unwrap();
+        std::fs::remove_dir_all(lab.root(&root).path()).unwrap();
         let db = lab.db.clone();
         drop(lab.store);
         let store = koine_sqlite::Store::open(&db).unwrap();
@@ -475,7 +475,7 @@ mod tests {
         use koine_sqlite::{Cancellation, Inspection, WriteState};
         let lab = crate::test_support::Lab::fault();
         let root = lab.add("root");
-        let path = lab.root(&root).path.join("steamapps/appmanifest_41.acf");
+        let path = lab.root(&root).path().join("steamapps/appmanifest_41.acf");
         std::fs::write(path,format!("\"AppState\" {{\"appid\" \"41\" \"installdir\" \"Synthetic\" \"name\" \"{}\" \"StateFlags\" \"4\"}}","S".repeat(500_000))).unwrap();
         let report = lab.report(&root);
         let journal = Journal::open(&lab.db).unwrap();

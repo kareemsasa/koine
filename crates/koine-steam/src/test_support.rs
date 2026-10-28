@@ -69,15 +69,16 @@ impl Lab {
         self.settings
             .lock()
             .unwrap()
-            .roots
+            .roots()
             .iter()
-            .find(|r| r.id == rid)
+            .find(|r| r.id() == rid)
             .unwrap()
             .clone()
     }
     pub fn report(&self, rid: &str) -> Report {
         let root = self.root(rid);
-        let plan = controlled::plan(&self.settings.lock().unwrap().owner, &root, id(), 10).unwrap();
+        let plan =
+            controlled::plan(self.settings.lock().unwrap().owner(), &root, id(), 10).unwrap();
         integration::register(&self.store, &plan).unwrap();
         controlled::scan(
             &self.settings,

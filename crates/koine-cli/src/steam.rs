@@ -127,7 +127,7 @@ pub fn run(args: &[String]) -> Result<bool> {
     )?));
     match command {
         "steam-roots" if args.len()==3=>{
-            for r in &settings.lock().map_err(|_|"settings poisoned")?.roots {println!("root={}; scope={}; layout={}; synthetic={}; authorized={}; physical_binding={}; path={}",r.id,r.scope,r.layout,r.synthetic,r.authorized,r.binding.is_some(),r.path.display());}
+            for r in settings.lock().map_err(|_|"settings poisoned")?.roots() {println!("root={}; scope={}; layout={}; synthetic={}; authorized={}; physical_binding={}; path={}",r.id(),r.scope(),r.layout(),r.synthetic(),r.authorized(),r.binding().is_some(),r.path().display());}
         }
         "steam-root-set" if args.len()==7=>{
             let synthetic=match args[5].as_str(){"synthetic"=>true,"real"=>false,_=>return Err("root mode must be synthetic or real".into())};
