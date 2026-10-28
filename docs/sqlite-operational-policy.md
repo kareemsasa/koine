@@ -15,7 +15,7 @@ design obligations without changing that provenance. It supplements
 digest, sealing, atomicity, and launch-recovery contracts remain authoritative.
 No separate database service is introduced. The later owner-authorized
 [offline foundation](executable-foundation.md) implements the initial worker model
-and selected checks. The later [Milestone 2 report](storage-resilience-steam.md)
+and selected checks. The later [Milestone 3 report](controlled-steam.md)
 is authoritative for current executable evidence;
 the full operational fault/stress matrix remains incomplete.
 

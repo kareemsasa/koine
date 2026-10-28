@@ -119,3 +119,8 @@ Legendary/gogdl or Wine command assembled by Koiné. Discovery and handoff capab
 are separate: an installation may be known while a supported Heroic handoff is
 unverified or unavailable. Formats, contexts, and transport compatibility still
 need adapter-specific evidence; they are not resolved by a synthetic case.
+
+The [controlled Steam implementation report](controlled-steam.md) records the
+current versioned subset, explicit root authorization, filesystem boundaries,
+application-local scheduling and synthetic verification. Those results do not
+certify real Steam installations or grant account/absence authority.

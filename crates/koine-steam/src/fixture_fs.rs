@@ -17,8 +17,9 @@ pub struct FixtureFs {
     pub(crate) root: File,
     pub(crate) path: PathBuf,
     pub id: String,
+    pub(crate) confined: bool,
 }
-fn child(dir: &File, name: &std::ffi::OsStr, directory: bool) -> Result<File> {
+fn child(dir: &File, name: &std::ffi::OsStr, directory: bool, confined: bool) -> Result<File> {
     let name = CString::new(name.as_bytes()).map_err(|_| "unsafe-path")?;
     let flags = libc::O_RDONLY
         | libc::O_CLOEXEC
@@ -26,11 +27,44 @@ fn child(dir: &File, name: &std::ffi::OsStr, directory: bool) -> Result<File> {
         | libc::O_NONBLOCK
         | if directory { libc::O_DIRECTORY } else { 0 };
     // SAFETY: parent descriptor and CString are live; openat returns a new owned fd.
-    let fd = unsafe { libc::openat(dir.as_raw_fd(), name.as_ptr(), flags) };
+    let fd = if confined {
+        #[repr(C)]
+        struct OpenHow {
+            flags: u64,
+            mode: u64,
+            resolve: u64,
+        }
+        // Linux openat2: NO_XDEV | NO_MAGICLINKS | NO_SYMLINKS | BENEATH.
+        let how = OpenHow {
+            flags: flags as u64,
+            mode: 0,
+            resolve: 0x01 | 0x02 | 0x04 | 0x08,
+        };
+        // SAFETY: valid descriptor, NUL-terminated name and sized open_how input.
+        unsafe {
+            libc::syscall(
+                libc::SYS_openat2,
+                dir.as_raw_fd(),
+                name.as_ptr(),
+                &how,
+                std::mem::size_of::<OpenHow>(),
+            ) as i32
+        }
+    } else {
+        // SAFETY: valid directory descriptor and NUL-terminated name.
+        unsafe { libc::openat(dir.as_raw_fd(), name.as_ptr(), flags) }
+    };
     if fd < 0 {
         return Err(match std::io::Error::last_os_error().raw_os_error() {
             Some(libc::ENOENT) => "missing-path",
             Some(libc::EACCES) => "unreadable-path",
+            Some(libc::EPERM) => "inaccessible-path",
+            Some(libc::ENOTDIR) => "unsupported-directory-or-symlink",
+            Some(libc::EXDEV) => "mount-boundary-refused",
+            Some(libc::ENOSYS | libc::EINVAL) => "unsupported-confinement",
+            Some(libc::ESTALE | libc::EAGAIN | libc::ENODEV | libc::EIO) => {
+                "temporarily-unavailable-path"
+            }
             Some(libc::ELOOP) => "symlink-refused",
             _ => "unavailable-path",
         }
@@ -58,19 +92,8 @@ impl FixtureFs {
         if !path.is_absolute() {
             return Err("fixture path must be explicit and absolute".into());
         }
-        let mut root = File::open("/").map_err(|_| "root unavailable")?;
-        for c in path.components() {
-            match c {
-                Component::RootDir => {}
-                Component::Normal(name) => root = child(&root, name, true)?,
-                _ => return Err("unsafe fixture path".into()),
-            }
-        }
-        let mut fs = Self {
-            root,
-            path: path.into(),
-            id: String::new(),
-        };
+        let mut fs = Self::boundary(path, String::new())?;
+        fs.confined = false; // Preserve the frozen fixture-v1 filesystem policy.
         let marker = fs.read(Path::new(".koine-synthetic-root"))?;
         let marker = std::str::from_utf8(&marker).map_err(|_| "invalid fixture marker")?;
         let mut lines = marker.lines();
@@ -95,6 +118,38 @@ impl FixtureFs {
         fs.id = id.into();
         Ok(fs)
     }
+    /// Opens only the explicitly named directory. No canonicalization or symlink following.
+    pub(crate) fn boundary(path: &Path, id: String) -> Result<Self> {
+        let path = crate::config::normalize(path)?;
+        let mut root = File::open("/").map_err(|_| "root unavailable")?;
+        for c in path.components() {
+            if let Component::Normal(name) = c {
+                root = child(&root, name, true, false)?;
+            }
+        }
+        Ok(Self {
+            root,
+            path,
+            id,
+            confined: true,
+        })
+    }
+    pub(crate) fn identity(&self) -> Result<String> {
+        let m = self.root.metadata().map_err(|_| "metadata-failed")?;
+        let birth = m
+            .created()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok());
+        let birth = birth.map_or_else(
+            || "unknown-birth".into(),
+            |b| format!("{}:{}", b.as_secs(), b.subsec_nanos()),
+        );
+        Ok(format!(
+            "koine.fs-identity.v1:{}:{}:{birth}",
+            m.dev(),
+            m.ino()
+        ))
+    }
     fn directory(&self, path: &Path) -> Result<File> {
         if !safe_relative(path) {
             return Err("unsafe-path".into());
@@ -105,7 +160,7 @@ impl FixtureFs {
             .map_err(|_| "descriptor-clone-failed")?;
         for c in path.components() {
             if let Component::Normal(name) = c {
-                dir = child(&dir, name, true)?
+                dir = child(&dir, name, true, self.confined)?
             }
         }
         Ok(dir)
@@ -116,7 +171,7 @@ impl FixtureFs {
         }
         let name = path.file_name().ok_or("missing filename")?;
         let parent = self.directory(path.parent().unwrap_or(Path::new("")))?;
-        let mut file = child(&parent, name, false)?;
+        let mut file = child(&parent, name, false, self.confined)?;
         let before = file.metadata().map_err(|_| "metadata-failed")?;
         if before.len() > 1_048_576 {
             return Err("oversized-file".into());

@@ -36,8 +36,11 @@ game configuration and execution.
     implementation decisions, commands, local commits and remaining limitations.
 12. [Steam fixture interpretation v1](steam-discovery-format.md): pinned public
     format evidence, supported subset, conservative semantics and read confinement.
-13. [Milestone 2 report](storage-resilience-steam.md): storage faults, versioned
-    Steam fixtures, durable CLI integration, 97 executed tests and remaining limits.
+13. [Milestone 2 report](storage-resilience-steam.md): historical storage faults,
+    versioned Steam fixtures, durable CLI integration and 97-test checkpoint.
+14. [Milestone 3 report](controlled-steam.md): configured Steam roots, v2 boundary
+    and layout semantics, bounded scheduling, durable recovery, CLI operations and
+    current executed validation. Real-root verification is separately gated.
 
 ## Authority and status
 
@@ -58,12 +61,14 @@ Accepted physical choices are recorded below. Contract elaborations include scop
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
-The repository now contains the offline Rust foundation and the owner-authorized
-storage resilience/Steam fixture milestone. The [current report](storage-resilience-steam.md)
-is authoritative for 97 passing all-features tests, including all 24 unchanged
-acceptance translations. The [first report](executable-foundation.md) preserves
-its 58-test checkpoint. Real Steam/Heroic integration and publication remain
-unverified and outside the completed milestone's authorization.
+The repository contains the offline Rust foundation and controlled Steam discovery.
+The [Milestone 3 report](controlled-steam.md) is authoritative for current local
+implementation and synthetic validation. The [second](storage-resilience-steam.md)
+and [first](executable-foundation.md) reports preserve the 97- and 58-test
+checkpoints and all 24 unchanged acceptance translations. Real Steam verification
+remains blocked by exact-root authorization; Heroic integration and publication
+remain unverified.
+
 A–D, logical mapping, physical design, operational, migration and initial retention
 approvals retain their recorded boundaries; test execution does not expand them.
 
@@ -115,7 +120,7 @@ establish local Git inspection or executable behavior.
 Repair/restore tooling, archival administration, pruning/cold relocation,
 backup scheduling/destination selection, packaging/runtime supply, ownership
 authentication, specific Steam/Heroic transports,
-synchronization scheduling, process identity mechanisms, and detailed UI design
+periodic synchronization policy, process identity mechanisms, and detailed UI design
 remain open. No expiry interval or automatic matching algorithm is selected.
 
 The [retention approval record](evidence-retention-proposal.md#approval-assessment)

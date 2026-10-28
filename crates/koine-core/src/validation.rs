@@ -25,7 +25,7 @@ pub fn supported_rule(s: &Snapshot, id: &Value, kind: &str) -> Result<()> {
     let r = s.by_id("rule_versions", id)?;
     require(
         r.is("kind", kind)
-            && r.is("version", "1")
+            && r.is("version", rules::version(r.text("name")?))
             && (r.is("name", "koine.synthetic.v1")
                 && r.get("artifact_digest") == &Value::Blob(synthetic_artifact(kind))
                 || rules::artifact(r.text("name")?, kind)
@@ -294,8 +294,12 @@ fn validate_claim(s: &Snapshot, c: &Record) -> Result<()> {
     )?;
     let evidence = referenced(s, c, "evidence_id", "evidence_records")?;
     supported_rule(s, evidence.get("interpretation_rule_id"), "interpretation")?;
-    if referenced(s, evidence, "interpretation_rule_id", "rule_versions")?
-        .is("name", rules::STEAM_INTERPRETATION)
+    if [rules::STEAM_INTERPRETATION, rules::STEAM_CONTROLLED]
+        .iter()
+        .any(|name| {
+            referenced(s, evidence, "interpretation_rule_id", "rule_versions")
+                .is_ok_and(|r| r.is("name", name))
+        })
     {
         require(
             ["entry_title", "presence", "completion", "location"]

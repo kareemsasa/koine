@@ -43,12 +43,22 @@ These establish fixture behavior, not live client/package compatibility, account
 ownership, negative installation authority or launcher execution. No personal
 library was inspected and no external implementation code was copied.
 
+## Milestone 3 format and boundary evidence
+
+The [controlled Steam report](controlled-steam.md#steam-formats-layouts-and-external-evidence)
+records a pinned Flathub wrapper/manifest inspection, reinspection of Steam app and
+library models, explicit native/Flatpak library semantics, and resolver evidence.
+Synthetic filesystem, scheduler, persistence and process-kill tests establish the
+implemented boundaries. No owner-authorized real root was available, so real
+client/package observations, actual coverage and adapter defects on personal
+libraries remain unverified. No launcher was executed.
+
 ## Implementation evidence still needed
 
 These are integration verification tasks, not reasons to change launcher authority:
 
-- Extend the inspected Steam format subset to reviewed real discovery locations,
-  client/package variants and live filesystem behavior under separate authorization.
+- Verify the configured Steam subset on explicitly authorized real library roots,
+  client/package variants and live filesystem behavior.
   Completion/malformed/missing-root behavior is tested synthetically; none of the
   inspected sources currently establishes absence authority from file omissions.
 - Verify a Steam handoff mechanism against supported launcher contexts, including

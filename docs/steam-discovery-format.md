@@ -3,6 +3,9 @@
 Engineering interpretation prepared for Milestone 2 on 2026-10-27, before encoding
 format semantics. This is an offline, read-only subset, not Valve certification or
 live-client verification. No upstream implementation code is copied.
+The separate [configured v2 adapter](controlled-steam.md#steam-formats-layouts-and-external-evidence)
+reuses these manifest-field rules under a new interpretation identity and stricter
+root policy. The fixture-v1 behavior below remains supported.
 
 ## Inspected primary implementation evidence
 

@@ -5,3 +5,8 @@
 *.koine-lock
 
 .koine-*.partial
+
+# Private application configuration and discovery recovery files.
+*.steam-roots.koin
+*.steam-roots.*.partial
+*.steam-journal/

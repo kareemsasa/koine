@@ -41,12 +41,14 @@ searchable collection without replacing the applications that manage them.
 
 ## Project status
 
-Milestone 2 adds storage fault hardening and read-only Steam discovery confined to
-explicitly supplied synthetic fixtures. The [engineering report](docs/storage-resilience-steam.md)
-records 97 passing tests with all features enabled, including all 24 unchanged
-acceptance cases, actual SQLite error/recovery checks and durable fixture discovery.
-The [first milestone report](docs/executable-foundation.md) preserves the original
-58-test checkpoint. Live Steam/Heroic integration and GTK remain unverified.
+Milestone 3 adds explicitly configured Steam roots, read-only filesystem
+confinement, a bounded discovery scheduler, cancellation and durable recovery.
+The [engineering report](docs/controlled-steam.md) records synthetic validation,
+format evidence, compatibility and storage limits. Real-library verification
+remains blocked by exact-root owner authorization; no real library was inspected.
+The [second](docs/storage-resilience-steam.md) and
+[first](docs/executable-foundation.md) reports preserve their 97- and 58-test
+checkpoints. GTK and live launcher execution remain unimplemented.
 
 Approved architecture remains stable Rust (edition 2024, Cargo), a GTK-independent
 application core with built-in adapters and bounded standard workers, serialized
@@ -106,3 +108,13 @@ created disposable lab databases.
 
 The repository is intended for eventual public release. Publication requires
 a separate review of licensing, repository contents, and disclosure boundaries.
+
+Configured discovery uses separate configuration and refresh operations. Start with
+`steam-root-set DATABASE ROOT_UUID native synthetic ABSOLUTE_FIXTURE_ROOT`, then
+`steam-refresh DATABASE REQUEST_UUID COLLECTED_AT_MICROS`. Additional fixture
+libraries must each be configured explicitly; index references are not followed.
+`steam-roots`, `steam-status`, `steam-evidence` and `steam-session` expose
+configuration, outcomes, provenance and interactive cancellation. The
+[Milestone 3 workflow](docs/controlled-steam.md#cli-workflow) documents exact
+commands, real-root approval and operational sidecars. Settings alone never
+initiate source inspection.

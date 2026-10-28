@@ -3,9 +3,9 @@
 Recorded 2026-10-27. **Offline implementation and synthetic verification completed;
 no live launcher integration or publication.** This preserves the first milestone
 implementation and validation checkpoint; the design documents retain their
-approval histories. [Milestone 2](storage-resilience-steam.md) is the current
-implementation/validation report and supersedes the historical next-step and
-limitation statements below where it records further work.
+approval histories. [Milestone 2](storage-resilience-steam.md) and the current
+[Milestone 3 report](controlled-steam.md) supersede the historical next-step and
+limitation statements below where they record further work.
 
 The owner authorized one engineering milestone: Rust application/test code,
 disposable SQLite databases, synthetic execution, routine reversible implementation

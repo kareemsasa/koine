@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+fault-injection = ["koine-sqlite/fault-injection"]
+
 [dependencies]
 koine-core.workspace = true
 koine-sqlite.workspace = true
@@ -12,3 +15,8 @@ libc.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[[bin]]
+name = "koine-steam-crash-probe"
+path = "src/bin/koine-steam-crash-probe.rs"
+required-features = ["fault-injection"]
