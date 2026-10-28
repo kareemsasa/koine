@@ -213,6 +213,55 @@ fn real_mode_requires_exact_authorization_and_configuration_change_revokes_it() 
     assert_ne!(scope, lab.root(&r).scope());
 }
 #[test]
+fn authorized_real_mode_scans_an_unmarked_boundary_as_configured_local_evidence() {
+    // A temporary synthetic library without the fixture marker; no real library is read.
+    let lab = Lab::new();
+    let path = lab._dir.path().join("unmarked/Steam");
+    fs::create_dir_all(path.join("steamapps")).unwrap();
+    index(&path, std::slice::from_ref(&path));
+    manifest(&path, 42, "4");
+    assert!(!path.join(".koine-synthetic-root").exists());
+    let r = id();
+    lab.settings
+        .lock()
+        .unwrap()
+        .set(&r, &path, "native", false)
+        .unwrap();
+    lab.settings.lock().unwrap().authorize(&r, &path).unwrap();
+    let root = lab.root(&r);
+    assert!(!root.synthetic() && root.authorized());
+    let report = lab.run(&r);
+    assert_eq!(report.plan.profile, Profile::RealV2);
+    assert_eq!(report.plan.profile.reporter(), "koine.steam.configured");
+    assert_eq!(report.outcome(), "complete");
+    assert!(report.roots[0].inspected);
+    assert!(report.roots[0].diagnostics.is_empty());
+    assert_eq!(report.roots[0].observations.len(), 1);
+    assert!(
+        Configuration::open(&lab.store, &lab.db).unwrap().roots()[0]
+            .binding()
+            .is_some()
+    );
+    let s = lab.store.snapshot().unwrap();
+    assert!(
+        s.rows("collections")
+            .all(|c| c.is("reporter", "koine.steam.configured"))
+    );
+    assert_eq!(s.rows("installations").count(), 1);
+    assert_eq!(s.rows("evidence_records").count(), 1);
+    assert!(
+        s.rows("evidence_records")
+            .all(|e| e.is("origin_namespace", "steam:local"))
+    );
+    assert!(
+        s.rows("authority_scopes")
+            .all(|a| a.is("authority_namespace", "steam:local"))
+    );
+    assert!(!format!("{s:?}").contains("DO_NOT_RETAIN"));
+    assert_eq!(s.rows("entitlements").count(), 0);
+    assert_eq!(s.rows("negative_justifications").count(), 0);
+}
+#[test]
 fn native_and_flatpak_explicit_library_layouts_share_versioned_manifest_semantics() {
     for (name, layout) in [
         ("native/Steam", "native"),

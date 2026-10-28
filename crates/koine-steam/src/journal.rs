@@ -430,6 +430,42 @@ mod tests {
         );
     }
     #[test]
+    fn configured_real_mode_journal_replays_as_local_evidence_after_restart() {
+        let lab = crate::test_support::Lab::new();
+        let root = lab.add_authorized_real("unmarked");
+        let report = lab.report(&root);
+        assert_eq!(report.plan.profile, Profile::RealV2);
+        assert_eq!(report.outcome(), "complete");
+        let encoded = wire(&report);
+        assert_eq!(
+            list(&encoded).unwrap()[1].text().unwrap(),
+            "koine.steam.configured"
+        );
+        assert_eq!(parse(&encoded).unwrap(), report);
+        let journal = Journal::open(&lab.db).unwrap();
+        journal.save(&report).unwrap();
+        std::fs::remove_dir_all(lab.root(&root).path()).unwrap();
+        let db = lab.db.clone();
+        drop(lab.store);
+        let store = koine_sqlite::Store::open(&db).unwrap();
+        assert_eq!(journal.recover(&store).unwrap(), 1);
+        assert_eq!(journal.recover(&store).unwrap(), 0);
+        let s = store.snapshot().unwrap();
+        assert!(
+            s.rows("collections")
+                .all(|c| c.is("reporter", "koine.steam.configured"))
+        );
+        assert_eq!(s.rows("evidence_records").count(), 2);
+        assert!(
+            s.rows("evidence_records")
+                .all(|e| e.is("origin_namespace", "steam:local"))
+        );
+        assert!(
+            s.rows("collection_closures")
+                .all(|c| c.is("outcome", "complete"))
+        );
+    }
+    #[test]
     fn corrupt_journal_blocks_recovery_and_preserves_pending_evidence() {
         let lab = crate::test_support::Lab::new();
         let root = lab.add("root");

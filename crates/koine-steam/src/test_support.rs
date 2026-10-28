@@ -39,13 +39,28 @@ impl Lab {
         Self::with_store(true)
     }
     pub fn add(&self, name: &str) -> String {
-        let path = self.dir.path().join(name);
-        fs::create_dir_all(path.join("steamapps")).unwrap();
+        let path = self.library(name);
         fs::write(
             path.join(".koine-synthetic-root"),
             format!("koine-fixture-v1\n{}\n", id()),
         )
         .unwrap();
+        self.configure(&path, true)
+    }
+    /// Real mode over an unmarked synthetic directory, approved for its exact path.
+    pub fn add_authorized_real(&self, name: &str) -> String {
+        let path = self.library(name);
+        let rid = self.configure(&path, false);
+        self.settings
+            .lock()
+            .unwrap()
+            .authorize(&rid, &path)
+            .unwrap();
+        rid
+    }
+    fn library(&self, name: &str) -> PathBuf {
+        let path = self.dir.path().join(name);
+        fs::create_dir_all(path.join("steamapps")).unwrap();
         fs::write(
             path.join("steamapps/libraryfolders.vdf"),
             format!(
@@ -57,11 +72,14 @@ impl Lab {
         for app in [41, 42] {
             fs::write(path.join(format!("steamapps/appmanifest_{app}.acf")),format!("\"AppState\" {{\"appid\" \"{app}\" \"installdir\" \"Synthetic {app}\" \"name\" \"Synthetic {app}\" \"StateFlags\" \"4\"}}")).unwrap();
         }
+        path
+    }
+    fn configure(&self, path: &Path, synthetic: bool) -> String {
         let rid = id();
         self.settings
             .lock()
             .unwrap()
-            .set(&rid, &path, "native", true)
+            .set(&rid, path, "native", synthetic)
             .unwrap();
         rid
     }
