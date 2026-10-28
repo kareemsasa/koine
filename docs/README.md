@@ -63,11 +63,15 @@ preserve the approved distinctions without prescribing a database or event syste
 
 The repository contains the offline Rust foundation and controlled Steam discovery.
 The [Milestone 3 report](controlled-steam.md) is authoritative for current local
-implementation and synthetic validation. The [second](storage-resilience-steam.md)
+implementation and synthetic validation. Its recorded counts were followed by two
+review fixes in the same pull request; at merge commit `8054216` (2026-10-28),
+140 all-feature and 119 default-feature tests pass and CI on `main` passed.
+The [second](storage-resilience-steam.md)
 and [first](executable-foundation.md) reports preserve the 97- and 58-test
 checkpoints and all 24 unchanged acceptance translations. Real Steam verification
-remains blocked by exact-root authorization; Heroic integration and publication
-remain unverified.
+remains blocked by exact-root authorization; Heroic integration remains unverified.
+Publication was owner-authorized on 2026-10-25; the README's separate
+pre-publication review is not recorded as complete.
 
 A–D, logical mapping, physical design, operational, migration and initial retention
 approvals retain their recorded boundaries; test execution does not expand them.
@@ -151,7 +155,7 @@ per-transition guarded-table rebuild mechanisms and distribution runtime
 verification remain open. Routine crash recovery remains distinct from migration
 recovery and separately unselected repair/restore tooling. Released-upgrade
 conformance remains unexecuted; only new-database bootstrap and compatibility
-refusal are implemented. Publication is not authorized.
+refusal are implemented. Publication was separately owner-authorized on 2026-10-25.
 
 The first vertical slice remains manual and Steam discovery, persistent records,
 distinct ownership and installation, Steam handoff, and observable states. Heroic
@@ -187,6 +191,7 @@ and scope. Do not introduce a programming stack just to execute these cases.
 The executable report traces the existing cases to synthetic tests. Maintain that
 mapping as implementation evolves and verify external integration separately.
 
-Local edits, validation, commits, public push, and real integration verification
-are separate events. This work is authorized for local commits. Public push still
-requires explicit publication authorization and the README's separate review.
+Local edits, validation, commits, publication of changes, and real integration
+verification are separate events. Publication was authorized on 2026-10-25. Since
+2026-10-28, changes reach `main` only through pull requests that pass the required
+`ci` check and receive code-owner review.
