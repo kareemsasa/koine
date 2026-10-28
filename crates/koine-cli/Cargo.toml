@@ -6,5 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+koine-steam.workspace = true
 koine-core.workspace = true
 koine-sqlite.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

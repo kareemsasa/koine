@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/koine-core", "crates/koine-sqlite", "crates/koine-cli"]
+members = ["crates/koine-core", "crates/koine-sqlite", "crates/koine-cli", "crates/koine-steam"]
 resolver = "3"
 
 [workspace.package]
@@ -9,6 +9,8 @@ rust-version = "1.89"
 license = "MIT"
 
 [workspace.dependencies]
+libc = "0.2"
+koine-steam = { path = "crates/koine-steam" }
 koine-core = { path = "crates/koine-core" }
 koine-sqlite = { path = "crates/koine-sqlite" }
 sha2 = "0.10"

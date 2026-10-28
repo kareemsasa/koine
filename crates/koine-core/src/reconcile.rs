@@ -406,7 +406,7 @@ pub fn plan(s: &Snapshot, new_ids: &BTreeSet<Value>) -> Result<Vec<Record>> {
                     ("id", did.clone().into()),
                     ("kind", "supersession".into()),
                     ("rule_id", rule("reconciliation")?),
-                    ("ordering_rule_id", rule("ordering")?),
+                    ("ordering_rule_id", rule("ordering").unwrap_or(Value::Null)),
                     (
                         "assessed_at",
                         referenced(s, a, "evidence_id", "evidence_records")?

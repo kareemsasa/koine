@@ -25,9 +25,11 @@ pub fn supported_rule(s: &Snapshot, id: &Value, kind: &str) -> Result<()> {
     let r = s.by_id("rule_versions", id)?;
     require(
         r.is("kind", kind)
-            && r.is("name", "koine.synthetic.v1")
             && r.is("version", "1")
-            && r.get("artifact_digest") == &Value::Blob(synthetic_artifact(kind)),
+            && (r.is("name", "koine.synthetic.v1")
+                && r.get("artifact_digest") == &Value::Blob(synthetic_artifact(kind))
+                || rules::artifact(r.text("name")?, kind)
+                    .is_some_and(|digest| r.get("artifact_digest") == &Value::Blob(digest))),
         "unsupported rule artifact",
     )
 }
@@ -114,6 +116,13 @@ pub(crate) fn source_order(
             && ac.get("reporter_context_id") == bc.get("reporter_context_id")
             && ac.get("reporter") == bc.get("reporter"),
         "incomparable source chronology",
+    )?;
+    require(
+        referenced(s, a, "interpretation_rule_id", "rule_versions")?
+            .is("name", "koine.synthetic.v1")
+            && referenced(s, b, "interpretation_rule_id", "rule_versions")?
+                .is("name", "koine.synthetic.v1"),
+        "no source chronology proof for this interpretation",
     )?;
     let revision = |r: &Record| -> Result<u64> {
         r.text("source_revision")?
@@ -285,6 +294,17 @@ fn validate_claim(s: &Snapshot, c: &Record) -> Result<()> {
     )?;
     let evidence = referenced(s, c, "evidence_id", "evidence_records")?;
     supported_rule(s, evidence.get("interpretation_rule_id"), "interpretation")?;
+    if referenced(s, evidence, "interpretation_rule_id", "rule_versions")?
+        .is("name", rules::STEAM_INTERPRETATION)
+    {
+        require(
+            ["entry_title", "presence", "completion", "location"]
+                .iter()
+                .any(|d| c.is("dimension", d))
+                && !c.is("knowledge", "confirmed_negative"),
+            "Steam installation observations cannot assert entitlement, absence or handoff",
+        )?;
+    }
     require(
         subject.get("dimension") == c.get("dimension")
             && subject.get("authority_scope_id") == c.get("authority_scope_id")
@@ -648,8 +668,15 @@ pub fn validate(s: &Snapshot) -> Result<()> {
         let profile = referenced(s, o, "profile_id", "identity_profiles")?;
         let e = referenced(s, o, "evidence_id", "evidence_records")?;
         require(
-            o.get("reported_key") == key.get("external_key"),
-            "synthetic identity profile preserves exact keys",
+            if referenced(s, profile, "rule_id", "rule_versions")?.is("name", rules::STEAM_IDENTITY)
+            {
+                profile.is("namespace", "steam:app")
+                    && profile.is("scope_kind", "global")
+                    && rules::steam_key(o.text("reported_key")?)? == key.text("external_key")?
+            } else {
+                o.get("reported_key") == key.get("external_key")
+            },
+            "reported key violates its supported identity profile",
         )?;
         if profile.is("key_role", "manual") {
             require(

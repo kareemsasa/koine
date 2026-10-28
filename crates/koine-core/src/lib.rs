@@ -2,5 +2,6 @@
 pub mod canonical;
 pub mod domain;
 pub mod reconcile;
+pub mod rules;
 pub mod validation;
 pub use domain::*;
