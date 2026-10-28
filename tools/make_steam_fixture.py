@@ -16,6 +16,11 @@ root.mkdir(exist_ok=False)  # Refuse existing data, including symlinks.
 (root / "steamapps").mkdir()
 extra = root / "library B"
 (extra / "steamapps").mkdir(parents=True)
+# Each root can also be selected independently by controlled discovery v2.
+(extra / ".koine-synthetic-root").write_text(f"koine-fixture-v1\n{uuid.uuid4()}\n")
+(extra / "steamapps/libraryfolders.vdf").write_text(
+    '"libraryfolders" { "0" { "path" ' + json.dumps(str(extra), ensure_ascii=False) + ' } }\n'
+)
 # JSON quoting matches the supported quoted KeyValues escapes for these paths.
 index = '"libraryfolders" {\n'
 for i, path in enumerate([root, extra]):

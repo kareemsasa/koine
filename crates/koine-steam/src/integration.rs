@@ -54,7 +54,7 @@ fn rule(
         vec![
             ("kind", kind.into()),
             ("name", name.into()),
-            ("version", "1".into()),
+            ("version", rules::version(name).into()),
             (
                 "artifact_digest",
                 rules::artifact(name, kind)
@@ -85,6 +85,9 @@ fn context(
     )
 }
 fn index_key(plan: &Plan) -> String {
+    if plan.profile.controlled() {
+        return format!("{}|index", plan.roots[0].key);
+    }
     format!(
         "{}|index|{}",
         plan.fixture,
@@ -102,12 +105,41 @@ fn selector(relative: &Path, item: &str) -> Value {
     .into()
 }
 fn metadata(s: &Snapshot, out: &mut Vec<Record>, plan: &Plan) -> Result<(String, String, String)> {
-    let interpretation = rule(s, out, rules::STEAM_INTERPRETATION, "interpretation")?;
+    let interpretation = rule(
+        s,
+        out,
+        if plan.profile.controlled() {
+            rules::STEAM_CONTROLLED
+        } else {
+            rules::STEAM_INTERPRETATION
+        },
+        "interpretation",
+    )?;
     let identity = rule(s, out, rules::STEAM_IDENTITY, "identity")?;
     rule(s, out, rules::RECONCILIATION, "reconciliation")?;
     rule(s, out, rules::FRESHNESS, "freshness")?;
-    let manager = context(s, out, "manager", "steam:fixture", &plan.fixture)?;
-    let machine = context(s, out, "machine", "koine:fixture", &plan.fixture)?;
+    let manager = context(
+        s,
+        out,
+        "manager",
+        if plan.profile.controlled() {
+            plan.profile.reporter()
+        } else {
+            "steam:fixture"
+        },
+        &plan.fixture,
+    )?;
+    let machine = context(
+        s,
+        out,
+        "machine",
+        if plan.profile.controlled() {
+            plan.profile.reporter()
+        } else {
+            "koine:fixture"
+        },
+        &plan.fixture,
+    )?;
     ensure(
         s,
         out,
@@ -144,8 +176,11 @@ fn registration(s: &Snapshot, plan: &Plan) -> Result<Vec<Record>> {
         [
             ("id", plan.delivery.clone().into()),
             ("kind", "discovery".into()),
-            ("reporter", "koine.steam.fixture".into()),
-            ("reporter_version", "1".into()),
+            ("reporter", plan.profile.reporter().into()),
+            (
+                "reporter_version",
+                if plan.profile.controlled() { "2" } else { "1" }.into(),
+            ),
             ("reporter_context_id", manager.clone().into()),
             ("interpretation_rule_id", interp.clone().into()),
             ("started_at", plan.at.into()),
@@ -162,18 +197,40 @@ fn registration(s: &Snapshot, plan: &Plan) -> Result<Vec<Record>> {
             issue: None,
         }));
     for root in roots {
-        let library = context(s, &mut out, "library", "steam:fixture-library", &root.key)?;
+        let library = context(
+            s,
+            &mut out,
+            "library",
+            if plan.profile.controlled() {
+                "steam:configured-library"
+            } else {
+                "steam:fixture-library"
+            },
+            &root.key,
+        )?;
         let root_context = context(
             s,
             &mut out,
             "source_instance",
-            "steam:fixture-root",
+            if plan.profile.controlled() {
+                "steam:configured-root"
+            } else {
+                "steam:fixture-root"
+            },
             &root.key,
         )?;
         let mut authority = row(
             "authority_scopes",
             [
-                ("authority_namespace", "steam:local".into()),
+                (
+                    "authority_namespace",
+                    if plan.profile == Profile::SyntheticV2 {
+                        "koine:steam-synthetic"
+                    } else {
+                        "steam:local"
+                    }
+                    .into(),
+                ),
                 ("manager_context_id", manager.clone().into()),
                 ("machine_context_id", machine.clone().into()),
                 ("library_context_id", library.into()),
@@ -231,10 +288,17 @@ fn registration(s: &Snapshot, plan: &Plan) -> Result<Vec<Record>> {
                 unit.set(
                     "selector",
                     selector(
-                        &if dim == "steam_index" {
-                            relative.clone()
-                        } else {
-                            relative.join("steamapps")
+                        &{
+                            let base = if let Some(boundary) = &plan.boundary {
+                                fixture_fs::from_bytes(boundary.clone()).join(relative)
+                            } else {
+                                relative.clone()
+                            };
+                            if dim == "steam_index" {
+                                base
+                            } else {
+                                base.join("steamapps")
+                            }
                         },
                         if dim == "steam_index" {
                             "item"
@@ -249,7 +313,7 @@ fn registration(s: &Snapshot, plan: &Plan) -> Result<Vec<Record>> {
         }
     }
     if let Some(existing) = existing {
-        if !existing.is("reporter", "koine.steam.fixture") {
+        if !existing.is("reporter", plan.profile.reporter()) {
             return Err("delivery belongs to another reporter".into());
         }
         let expected_count = plan.roots.len() * DIMS.len() + 1;
@@ -266,6 +330,30 @@ fn registration(s: &Snapshot, plan: &Plan) -> Result<Vec<Record>> {
 pub fn register(store: &Store, plan: &Plan) -> Result<()> {
     let plan = plan.clone();
     store.mutate(move |snapshot| registration(snapshot, &plan))
+}
+/// Atomically register all scopes in a bounded scheduler request.
+pub fn register_plans(store: &Store, plans: Vec<Plan>) -> Result<()> {
+    store.mutate(move |s| {
+        let mut combined = s.clone();
+        let mut out = Vec::new();
+        for plan in plans {
+            let rows = registration(&combined, &plan)?;
+            for row in &rows {
+                let m = canonical::CATALOG
+                    .iter()
+                    .find(|m| m.table == row.table)
+                    .ok_or("registration table")?;
+                if !combined
+                    .rows(&row.table)
+                    .any(|r| m.keys.iter().all(|k| r.get(k) == row.get(k)))
+                {
+                    combined.records.push(row.clone());
+                }
+            }
+            out.extend(rows);
+        }
+        Ok(out)
+    })
 }
 struct Coverage<'a> {
     delivery: &'a str,
@@ -297,7 +385,15 @@ fn coverage(
         ],
     )
     .ok_or("unregistered coverage unit")?;
-    let status = if !inspected {
+    let hard_failure = !usable
+        && gaps
+            .iter()
+            .any(|g| crate::controlled::definitive_failure(&g.0))
+        && s.by_id("collections", &Value::from(delivery))?
+            .is("reporter_version", "2");
+    let status = if hard_failure {
+        "failed"
+    } else if !inspected {
         "inconclusive"
     } else if gaps.is_empty() {
         "complete"
@@ -351,7 +447,7 @@ fn coverage(
                 (
                     "message",
                     format!(
-                        "Steam fixture interpretation: {code}; relative locator bytes (hex): {}",
+                        "Steam interpretation: {code}; relative locator bytes (hex): {}",
                         hex(locator)
                     )
                     .into(),
@@ -368,13 +464,21 @@ fn coverage(
     }
     Ok((pid, status.into(), unit.get("authority_scope_id").clone()))
 }
-fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
+pub fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
     report.validate()?;
     let c = s.by_id("collections", &report.plan.delivery.clone().into())?;
     if c.int("started_at")? != report.plan.at {
         return Err("delivery time changed".into());
     }
-    let fingerprint = format!("steam.report.v1:{}", hex(&report.fingerprint()));
+    let fingerprint = format!(
+        "steam.report.{}:{}",
+        if report.plan.profile.controlled() {
+            "v2"
+        } else {
+            "v1"
+        },
+        hex(&report.fingerprint())
+    );
     if let Ok(closure) = s.find("collection_closures", "collection_id", c.get("id")) {
         return if closure.is("reason", &fingerprint) {
             Ok(vec![])
@@ -457,7 +561,15 @@ fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
                     ("id", eid.clone().into()),
                     ("collection_id", report.plan.delivery.clone().into()),
                     ("origin_kind", "external".into()),
-                    ("origin_namespace", "steam:local".into()),
+                    (
+                        "origin_namespace",
+                        if report.plan.profile == Profile::SyntheticV2 {
+                            "koine:steam-synthetic"
+                        } else {
+                            "steam:local"
+                        }
+                        .into(),
+                    ),
                     ("locator_kind", "path".into()),
                     ("locator", observation.locator.clone().into()),
                     ("collected_at", report.plan.at.into()),
@@ -582,7 +694,12 @@ fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
                     "presence" => observation.presence.then(|| "present".into()),
                     "completion" => observation.completion.clone().map(Value::Text),
                     "location" => {
-                        let manifest = fixture_fs::from_bytes(observation.locator.clone());
+                        let relative = fixture_fs::from_bytes(observation.locator.clone());
+                        let manifest = if let Some(boundary) = &report.plan.boundary {
+                            fixture_fs::from_bytes(boundary.clone()).join(relative)
+                        } else {
+                            relative
+                        };
                         Some(
                             fixture_fs::bytes(
                                 &manifest
@@ -617,11 +734,20 @@ fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
                         (
                             "basis_code",
                             format!(
-                                "steam.manifest.v1:appid={};StateFlags={}",
+                                "{}:appid={};StateFlags={}{}",
+                                if report.plan.profile.controlled() {
+                                    "steam.controlled.v2"
+                                } else {
+                                    "steam.manifest.v1"
+                                },
                                 observation.reported_id,
                                 observation
                                     .flags
-                                    .map_or_else(|| "unknown".into(), |f| f.to_string())
+                                    .map_or_else(|| "unknown".into(), |f| f.to_string()),
+                                report.plan.physical_binding.as_ref().map_or_else(
+                                    String::new,
+                                    |b| format!(";root-binding-sha256={}", hex(b))
+                                )
                             )
                             .into(),
                         ),
@@ -663,7 +789,9 @@ fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
     )?;
     statuses.push(index_status);
     let usable = report.roots.iter().any(|r| !r.observations.is_empty());
-    let outcome = if statuses.iter().all(|s| s == "complete") {
+    let outcome = if report.plan.profile.controlled() {
+        report.outcome()
+    } else if statuses.iter().all(|s| s == "complete") {
         "complete"
     } else if usable {
         "partial"
@@ -713,5 +841,56 @@ pub fn assessment(store: &Store, at: i64) -> Result<Assessment> {
         observer_epoch: None,
         reconciliation_rule: rule(rules::RECONCILIATION)?,
         freshness_rule: rule(rules::FRESHNESS)?,
+    })
+}
+
+/// Close only unfinished configured collections after journal replay, without source I/O.
+/// Observations already committed remain immutable. An interruption grants no negatives.
+pub fn recover_pending(store: &Store, at: i64) -> Result<()> {
+    store.mutate(move |s| {
+        let mut out = Vec::new();
+        for c in s.rows("collections").filter(|c| {
+            c.is("reporter", "koine.steam.configured") || c.is("reporter", "koine.steam.synthetic")
+        }) {
+            let delivery = c.text("id")?;
+            if s.find("collection_closures", "collection_id", c.get("id"))
+                .is_ok()
+            {
+                continue;
+            }
+            for u in s
+                .rows("requested_units")
+                .filter(|u| u.get("collection_id") == c.get("id"))
+            {
+                let dim = u.text("dimension")?;
+                let key = u
+                    .text("unit_key")?
+                    .strip_suffix(&format!("|{dim}"))
+                    .ok_or("unsupported pending unit")?;
+                coverage(
+                    s,
+                    &mut out,
+                    Coverage {
+                        delivery,
+                        key,
+                        dim,
+                        inspected: false,
+                        gaps: &[("interrupted-before-durable-result".into(), vec![])],
+                        usable: false,
+                    },
+                )?;
+            }
+            out.push(row(
+                "collection_closures",
+                [
+                    ("collection_id", delivery.into()),
+                    ("outcome", "inconclusive".into()),
+                    ("finished_at", at.max(c.int("started_at")?).into()),
+                    ("reason", "steam.scheduler.interrupted.v1".into()),
+                    ("result_protocol", "koine.result.v1".into()),
+                ],
+            ));
+        }
+        Ok(out)
     })
 }

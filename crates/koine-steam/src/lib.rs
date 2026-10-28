@@ -1,7 +1,13 @@
-//! Versioned read-only Steam discovery, confined to explicitly marked fixtures.
+//! Versioned read-only Steam discovery within explicit configured or marked fixture roots.
+pub mod config;
+pub mod controlled;
+#[cfg(feature = "fault-injection")]
+pub mod faults;
 mod fixture_fs;
 pub mod integration;
+mod journal;
 pub mod keyvalues;
+pub mod scheduler;
 pub use fixture_fs::FixtureFs;
 use koine_core::{canonical, *};
 use std::{
@@ -24,8 +30,29 @@ pub struct LibraryRoot {
     pub relative: Option<PathBuf>,
     pub issue: Option<String>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Profile {
+    FixtureV1,
+    SyntheticV2,
+    RealV2,
+}
+impl Profile {
+    pub fn controlled(self) -> bool {
+        self != Self::FixtureV1
+    }
+    pub fn reporter(self) -> &'static str {
+        match self {
+            Self::FixtureV1 => "koine.steam.fixture",
+            Self::SyntheticV2 => "koine.steam.synthetic",
+            Self::RealV2 => "koine.steam.configured",
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Plan {
+    pub profile: Profile,
+    pub boundary: Option<Vec<u8>>,
+    pub physical_binding: Option<Vec<u8>>,
     pub delivery: String,
     pub fixture: String,
     pub at: i64,
@@ -212,6 +239,9 @@ impl FixtureFs {
             Err(reason) => issues.push(reason),
         }
         Ok(Plan {
+            profile: Profile::FixtureV1,
+            boundary: None,
+            physical_binding: None,
             delivery,
             fixture: self.id.clone(),
             at,
@@ -221,6 +251,14 @@ impl FixtureFs {
         })
     }
     pub fn scan(&self, plan: Plan, cancel: Arc<AtomicBool>) -> Result<Report> {
+        self.scan_progress(plan, cancel, &mut |_| {})
+    }
+    pub fn scan_progress(
+        &self,
+        plan: Plan,
+        cancel: Arc<AtomicBool>,
+        progress: &mut dyn FnMut(usize),
+    ) -> Result<Report> {
         if plan.fixture != self.id {
             return Err("fixture identity changed".into());
         }
@@ -327,7 +365,8 @@ impl FixtureFs {
                                 locator: locator.clone(),
                             })
                         }
-                        report.observations.push(observation)
+                        report.observations.push(observation);
+                        progress(report.observations.len())
                     }
                     Err(reason) => report.diagnostics.push(Diagnostic {
                         code: reason,
@@ -346,11 +385,12 @@ impl FixtureFs {
             reports.push(report)
         }
         let mut index_issues = plan.index_issues.clone();
-        if self
-            .read(Path::new("steamapps/libraryfolders.vdf"))
-            .ok()
-            .map(|b| canonical::hash(&b))
-            != plan.index_revision
+        if !plan.profile.controlled()
+            && self
+                .read(Path::new("steamapps/libraryfolders.vdf"))
+                .ok()
+                .map(|b| canonical::hash(&b))
+                != plan.index_revision
         {
             index_issues.push("library-index-changed".into())
         }
@@ -363,9 +403,55 @@ impl FixtureFs {
 }
 impl Report {
     fn validate(&self) -> Result<()> {
+        config::uuid(&self.plan.delivery)?;
+        if self.plan.profile.controlled()
+            && (self.plan.roots.len() != 1
+                || self.plan.roots[0].relative.as_deref() != Some(Path::new(""))
+                || self.plan.roots[0].issue.is_some())
+        {
+            return Err("invalid configured report scope".into());
+        }
+        if self.plan.profile.controlled() {
+            let boundary = fixture_fs::from_bytes(
+                self.plan
+                    .boundary
+                    .clone()
+                    .ok_or("configured boundary missing")?,
+            );
+            if config::normalize(&boundary)? != boundary {
+                return Err("invalid configured boundary".into());
+            }
+        }
+        if self.plan.roots.is_empty()
+            || self
+                .plan
+                .index_revision
+                .as_ref()
+                .is_some_and(|r| r.len() != 32)
+        {
+            return Err("invalid report request".into());
+        }
+        for r in &self.plan.roots {
+            if r.relative
+                .as_ref()
+                .is_some_and(|p| !fixture_fs::safe_relative(p))
+            {
+                return Err("unsafe report root".into());
+            }
+        }
+
         for root in &self.roots {
             let mut seen = std::collections::BTreeSet::new();
             for o in &root.observations {
+                if self.plan.profile.controlled()
+                    && self
+                        .plan
+                        .physical_binding
+                        .as_ref()
+                        .is_none_or(|b| b.len() != 32)
+                {
+                    return Err("configured observation lacks physical binding".into());
+                }
                 let locator = fixture_fs::from_bytes(o.locator.clone());
                 let parent = root
                     .root
@@ -442,10 +528,25 @@ impl Report {
             })
             .collect();
         canonical::hash(&canonical::frame(
-            "koine.steam.report.v1",
+            if self.plan.profile.controlled() {
+                self.plan.profile.reporter()
+            } else {
+                "koine.steam.report.v1"
+            },
             &Value::List(vec![
                 self.plan.delivery.clone().into(),
-                self.plan.fixture.clone().into(),
+                if self.plan.profile.controlled() {
+                    Value::List(vec![
+                        self.plan.fixture.clone().into(),
+                        self.plan.boundary.clone().map_or(Value::Null, Value::Blob),
+                        self.plan
+                            .physical_binding
+                            .clone()
+                            .map_or(Value::Null, Value::Blob),
+                    ])
+                } else {
+                    self.plan.fixture.clone().into()
+                },
                 self.plan
                     .index_revision
                     .clone()
@@ -480,3 +581,6 @@ impl Report {
         ))
     }
 }
+
+#[cfg(test)]
+mod test_support;

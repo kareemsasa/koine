@@ -1,5 +1,6 @@
-//! Explicit offline tools. Steam discovery accepts marked synthetic roots only.
+//! Explicit application-local tools; real Steam roots require separate authorization.
 mod demo;
+mod steam;
 use koine_core::{reconcile, *};
 use koine_sqlite::Store;
 use std::sync::{Arc, atomic::AtomicBool};
@@ -14,6 +15,9 @@ fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() < 3 {
         return Err(USAGE.into());
+    }
+    if steam::run(&args)? {
+        return Ok(());
     }
     let mut at = 100;
     let store = match args[1].as_str() {
@@ -119,7 +123,11 @@ fn run() -> Result<()> {
                 evidence.int("collected_at")?,
                 evidence.get("source_effective_at"),
                 evidence.get("source_revision"),
-                evidence.get("locator")
+                evidence
+                    .get("locator")
+                    .blob()
+                    .ok()
+                    .map(|b| format!("[{} locator bytes withheld]", b.len()))
             );
         }
     }

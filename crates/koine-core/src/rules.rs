@@ -1,13 +1,20 @@
 //! Built-in versioned rule identities; no I/O or external format parser.
 use crate::{canonical, *};
 pub const STEAM_INTERPRETATION: &str = "koine.steam.manifest.v1";
+pub const STEAM_CONTROLLED: &str = "koine.steam.controlled.v2";
 pub const STEAM_IDENTITY: &str = "koine.steam.app-id.v1";
 pub const RECONCILIATION: &str = "koine.evidence.v1";
 pub const FRESHNESS: &str = "koine.source-freshness.v1";
+pub fn version(name: &str) -> &'static str {
+    if name == STEAM_CONTROLLED { "2" } else { "1" }
+}
 pub fn artifact(name: &str, kind: &str) -> Option<Vec<u8>> {
     let descriptor = match (name, kind) {
         (STEAM_INTERPRETATION, "interpretation") => {
             "koine.steam.manifest.v1:bounded-root;reported-presence;explicit-completion;opaque-revision;no-negative;no-entitlement;no-handoff;source-age-unknown"
+        }
+        (STEAM_CONTROLLED, "interpretation") => {
+            "koine.steam.controlled.v2:explicit-pinned-roots;no-auto-expansion;openat2-no-follow-no-xdev;manifest-v1-fields;native-flatpak-explicit-library;no-negative;no-entitlement;no-handoff;opaque-revision;source-age-unknown"
         }
         (STEAM_IDENTITY, "identity") => {
             "koine.steam.app-id.v1:nonzero-decimal-u32;global-steam:app;preserve-reported-key"
