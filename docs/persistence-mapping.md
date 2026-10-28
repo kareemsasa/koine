@@ -1,9 +1,9 @@
 # Approved logical-to-relational mapping
 
 **Status: Approved logical behavior; physical design separately approved.** Recorded
-2026-10-26 from the owner's review of the clarified discussion draft. The approval
-was of the discussion mapping, not independent inspection of this newly created
-file. [Architecture A–D](architecture-options.md) and the existing
+2026-10-26 from the owner's approval of the clarified mapping draft. The approval
+covers that mapping, not every detail of this record.
+[Architecture A–D](architecture-options.md) and the existing
 [domain](domain-model.md), [discovery](discovery-contract.md), and
 [launch](launch-contract.md) contracts remain authoritative.
 
@@ -38,7 +38,7 @@ account, instance, or library context. An unresolved context receives an isolate
 provisional identity; no shared "unknown account" sentinel can merge records.
 Reuse requires continuity evidence, not title similarity.
 
-The discussion's `steam:app` profile concerns validated application identifiers;
+The mapping's `steam:app` profile concerns validated application identifiers;
 manual entries are library-scoped. Neither statement establishes global identity
 rules for every storefront or launcher identifier.
 
@@ -120,11 +120,11 @@ and a recorded decision.
 
 ## Physical-design approval and implementation boundary
 
-The owner independently reviewed the uploaded revised
+The owner reviewed the revised
 [physical SQLite design baseline](sqlite-schema-proposal.md) and approved its
 catalog, canonical digest protocols and specified guard/seal behavior at the design
-level. This is a separate approval from the logical mapping recorded above, and
-does not establish local Git verification or executable correctness.
+level. This is a separate approval from the logical mapping recorded above;
+design approval does not establish executable correctness.
 
 The implementation must verify canonical serialization using reproducible vectors
 and enforce complete proofs, valid references, closure and coverage. Selected
@@ -139,8 +139,9 @@ the full stress/fault matrix remains unverified.
 The separately approved [migration policy](sqlite-migration-proposal.md) resolves
 migration strategy at design level, with metadata approved in principle and
 independent review required for each actual transition. Initial bootstrap metadata,
-application ID and artifact digest are implemented under the milestone authority;
-released transitions, general backup administration, guarded-table rebuild
+application ID and artifact digest are implemented in the separately authorized
+offline milestone; released transitions, general backup administration,
+guarded-table rebuild
 mechanisms and distribution runtime verification remain open. The separately approved
 [initial retention and archival policy](evidence-retention-proposal.md) retains all
 committed structured evidence live and uses validated full copies without pruning
@@ -149,7 +150,8 @@ cleanup, permanent erasure, routine backup scheduling and restoration remain ope
 distribution compatibility remains unverified.
 
 The design approval alone authorized documentation. The later executable-foundation
-instruction separately authorized offline Rust code, disposable databases,
+milestone was separately authorized for offline Rust code, disposable databases,
 synthetic tests and local commits. All 24 unchanged Markdown specifications now
 have passing executable translations; this does not authorize released upgrades,
-live launcher execution or publication.
+live launcher execution or publication (publication was separately authorized on
+2026-10-25).

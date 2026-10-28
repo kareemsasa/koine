@@ -48,7 +48,7 @@ The following distinctions apply throughout these documents:
 
 | Kind | Authority and meaning |
 | --- | --- |
-| Product requirement / established decision | Owner-directed scope, reflected in the project README and the foundation mandate: five distinct concepts, launcher authority, evidence preservation, truthful launch reporting, optional metadata, and the initial integration order. |
+| Product requirement / established decision | Owner-directed scope, reflected in the project README: five distinct concepts, launcher authority, evidence preservation, truthful launch reporting, optional metadata, and the initial integration order. |
 | Interface contract | Engineering elaboration of those decisions. Required behavior for an implementation; terminology and logical fields are not a programming API or physical schema. |
 | Implementation detail | Mechanism chosen within approved architecture. None of the examples chooses an application stack. |
 | External evidence | Referenced launcher documentation or inspected public evidence; establishes only the specifically attributed behavior and limits. |
@@ -82,17 +82,17 @@ the owner's A–D approval and its boundaries: stable Rust (edition 2024, Cargo)
 standard workers without Tokio initially, an application-local core with built-in
 adapters, bounded workers and serialized state mutations, GTK4/libadwaita through
 Rust bindings, and SQLite with relational separation of records and evidence.
-It retains the alternatives and engineering rationale. The owner reviewed the
-comparison in the message and did not claim independent inspection of that file.
+It retains the alternatives and engineering rationale. The approval covers the
+four choices and their recorded boundaries, not every detail in that file.
 
-The owner separately approved the [clarified logical mapping](persistence-mapping.md)
-from the discussion. All four review conditions are satisfied as behavioral
+The owner separately approved the [clarified logical mapping](persistence-mapping.md).
+All four review conditions are satisfied as behavioral
 obligations. Heroic's reporter-local identity profile remains provisional; manager
 authority is distinct from storefront identity authority. The
-[physical SQLite design baseline](sqlite-schema-proposal.md) now has independent
-owner approval of its catalog, canonical digest protocols and specified guard/seal
-behavior. The owner inspected the uploaded revision, not local Git state, and did
-not execute SQL. This closes the design-review gate, not executable validation.
+[physical SQLite design baseline](sqlite-schema-proposal.md) now has owner
+approval of its catalog, canonical digest protocols and specified guard/seal
+behavior. This closes the design-review gate; design approval is not executable
+validation.
 
 The owner subsequently accepted lowercase UUID TEXT, UTC integer microseconds,
 path BLOBs, SHA-256 as content-digest algorithm, and STRICT/3.37.0 as schema baseline
@@ -116,9 +116,9 @@ transaction failures must preserve commit uncertainty and inspect immutable
 identities before database retry, without replaying launcher submissions.
 Selected offline operational checks, including queue/cancellation, real SQLite
 errors, backup faults and WAL pressure now pass; the current report identifies
-untested fault and stress cases. The owner reviewed the uploaded
-proposal against persistence contracts and SQLite documentation; approval does not
-establish local Git inspection or executable behavior.
+untested fault and stress cases. The owner reviewed the
+proposal against persistence contracts and SQLite documentation; design approval
+does not establish executable behavior.
 
 Repair/restore tooling, archival administration, pruning/cold relocation,
 backup scheduling/destination selection, packaging/runtime supply, ownership
@@ -140,8 +140,8 @@ executable correctness, implementation authorization or publication clearance.
 The [migration approval record](sqlite-migration-proposal.md) establishes design
 approval for exact compatibility checks, a whole-path transaction, mandatory
 validated safety copy, interrupted recovery, evidence preservation and validation
-before ordinary operations resume. The owner independently reviewed the uploaded
-proposal; no local Git inspection or executable result follows. Metadata is approved
+before ordinary operations resume. Design approval is not an executable result.
+Metadata is approved
 in principle. Each actual migration still needs independent review, including
 guarded-table mechanisms and preservation proofs. Source content must still match
 the validated safety copy before transformation; failed post-commit reopen/semantic

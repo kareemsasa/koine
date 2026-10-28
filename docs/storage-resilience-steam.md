@@ -4,7 +4,7 @@ Recorded 2026-10-27. **Implemented, locally executed and committed; no live laun
 integration or publication.** The [Milestone 3 report](controlled-steam.md) supersedes
 current-capability and next-step statements below where it records further work;
 this dated checkpoint remains unchanged. Starting HEAD was `de3d8ba` on `main`, with an empty
-working tree. The owner's Milestone 2 instruction authorized application changes,
+working tree. The owner authorized Milestone 2 application changes,
 synthetic fixtures, disposable fault databases, local tests and local commits.
 The [first milestone report](executable-foundation.md) remains historical evidence;
 its design approvals and 58-test checkpoint are preserved.
@@ -112,9 +112,9 @@ physical power-loss behavior or storage-device guarantees.
 
 ### Quality and database checks
 
-The following commands completed successfully on stable Rust/Cargo 1.99.1 and
-system-linked SQLite 3.54.0 in the same isolated toolchain environment as milestone
-1. Dependencies came from the existing cache; tests ran offline.
+The following commands completed successfully on Linux with stable Rust/Cargo
+1.99.1 and system-linked SQLite 3.54.0, as in milestone 1. Dependencies came from
+a local cache; tests ran offline.
 
 ```sh
 cargo fmt --all -- --check
@@ -198,10 +198,11 @@ Local implementation commits:
 
 These follow the verified `de3d8ba` baseline. The source checkpoint at `b7485dd`
 had a clean working tree before final refinements/documentation reconciliation.
-Documentation reconciliation is the subsequent commit containing this report; the consolidated delivery records its hash and the
-observed final post-commit Git status. No push, publication or deployment occurred.
-Approval histories and first-milestone results remain intact. No time estimates
-or unmeasured performance claims were introduced.
+Documentation reconciliation is the subsequent commit containing this report; its
+hash is available in Git history, and the final post-commit Git status was observed
+after it. No push, publication or deployment occurred.
+Approval histories and first-milestone results remain intact. No unmeasured
+performance claims were introduced.
 
 Recommended next substantial milestone: explicitly configured read-only Steam
 discovery on owner-authorized real roots, with package/layout compatibility

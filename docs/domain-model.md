@@ -1,6 +1,6 @@
 # Domain model
 
-This is a logical contract under the [foundation authority](README.md). It defines
+This is a logical contract under the [engineering foundation](README.md). It defines
 meaning and identity constraints, not tables, classes, or a persistence engine.
 
 ## Five distinct concepts

@@ -2,12 +2,12 @@
 
 **Status: Approved initial design; selected offline retention/copy checks now recorded.**
 Originally prepared 2026-10-27 as a documentation-only engineering proposal.
-Owner design-level approval is recorded 2026-10-27 from the explicit instruction
-to record the initial retention and copy-only archival policy, its nonblocking
-limitations and remaining open decisions. This establishes neither independent
-inspection of local Git state nor an executable result. Approval does not modify
+Owner design-level approval of the initial retention and copy-only archival
+policy, its nonblocking limitations and remaining open decisions is recorded
+2026-10-27. Design approval is not an executable result. Approval does not modify
 the approved catalog or authorize implementation, database operations, deletion,
-migration, executable tests, commit or publication.
+migration, executable tests, commit or publication (publication was separately
+authorized on 2026-10-25).
 
 The [logical mapping](persistence-mapping.md),
 [physical design](sqlite-schema-proposal.md),
@@ -385,7 +385,7 @@ No age window, pruning mechanism, cold relocation or secure-erasure mechanism is
 approved in advance. Existing migration-specific and packaging/runtime decisions
 remain open under their own approval records.
 
-The later executable-foundation instruction separately authorized offline code,
+The later executable-foundation milestone was separately authorized for offline code,
 disposable databases, synthetic checks and local commits. Selected canonical,
 guard, retention and backup checks now pass; the report identifies remaining
 operational and migration validation. Future retention/archive extensions still
@@ -402,15 +402,15 @@ publication clearance.
   Retention approval remains pending. Existing migration approval and all 24
   acceptance specifications retain their prior status; no implementation,
   database, runtime test, commit or publication is claimed.
-- **Owner design approval, recorded 2026-10-27:** The owner explicitly directed
-  recording design-level approval of the initial retention and copy-only archival
-  policy. All committed structured evidence remains live, required dependencies
-  and canonical membership remain preserved, and validated full archival copies
+- **Owner design approval, recorded 2026-10-27:** The owner approved the
+  initial retention and copy-only archival policy at design level. All committed
+  structured evidence remains live, required dependencies and canonical membership
+  remain preserved, and validated full archival copies
   authorize neither source pruning nor relocation. Manual visibility semantics
   remain reversible and separate from erasure. The nonblocking limitations and
   remaining decisions are identified above. The policy retains its engineering
-  provenance; no independent local Git inspection or executable result is inferred.
-  Only documentation recording is authorized. No implementation, database operation,
+  provenance; design approval is not an executable result. The approval
+  authorized documentation only. No implementation, database operation,
   deletion, migration, executable test or publication is authorized; the existing
   24 acceptance specifications remain unchanged and unexecuted, and executable
   correctness remains unverified.
