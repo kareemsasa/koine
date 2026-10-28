@@ -31,9 +31,13 @@ game configuration and execution.
     referenced evidence, archival alternatives, manual removal and recovery
     consequences; initial retention and copy-only archival approved at design
     level, with nonblocking limitations and further decisions retained.
-11. [Executable foundation report](executable-foundation.md): implemented modules,
+11. [First executable foundation report](executable-foundation.md): implemented modules,
     all 24 executable acceptance mappings, canonical/database/recovery evidence,
     implementation decisions, commands, local commits and remaining limitations.
+12. [Steam fixture interpretation v1](steam-discovery-format.md): pinned public
+    format evidence, supported subset, conservative semantics and read confinement.
+13. [Milestone 2 report](storage-resilience-steam.md): storage faults, versioned
+    Steam fixtures, durable CLI integration, 97 executed tests and remaining limits.
 
 ## Authority and status
 
@@ -54,12 +58,12 @@ Accepted physical choices are recorded below. Contract elaborations include scop
 evidence, bounded completeness, and independent handoff/process state axes. They
 preserve the approved distinctions without prescribing a database or event system.
 
-The repository now contains the first offline Rust foundation. The owner explicitly
-authorized application/test code, disposable databases, synthetic execution and
-local commits as one milestone. The [implementation report](executable-foundation.md)
-is authoritative for the 58 passing tests, all 24 acceptance translations and
-remaining limitations. The Markdown specifications are unchanged. Real Steam/Heroic
-integration and publication remain unverified and unauthorized for this milestone.
+The repository now contains the offline Rust foundation and the owner-authorized
+storage resilience/Steam fixture milestone. The [current report](storage-resilience-steam.md)
+is authoritative for 97 passing all-features tests, including all 24 unchanged
+acceptance translations. The [first report](executable-foundation.md) preserves
+its 58-test checkpoint. Real Steam/Heroic integration and publication remain
+unverified and outside the completed milestone's authorization.
 A–D, logical mapping, physical design, operational, migration and initial retention
 approvals retain their recorded boundaries; test execution does not expand them.
 
@@ -102,7 +106,8 @@ threshold are approved initial policy values, not empirically validated settings
 Backup completion must reach `SQLITE_DONE` and yield fairly to ordinary reads;
 transaction failures must preserve commit uncertainty and inspect immutable
 identities before database retry, without replaying launcher submissions.
-Selected offline operational checks now pass; the implementation report identifies
+Selected offline operational checks, including queue/cancellation, real SQLite
+errors, backup faults and WAL pressure now pass; the current report identifies
 untested fault and stress cases. The owner reviewed the uploaded
 proposal against persistence contracts and SQLite documentation; approval does not
 establish local Git inspection or executable behavior.

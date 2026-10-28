@@ -15,7 +15,8 @@ design obligations without changing that provenance. It supplements
 digest, sealing, atomicity, and launch-recovery contracts remain authoritative.
 No separate database service is introduced. The later owner-authorized
 [offline foundation](executable-foundation.md) implements the initial worker model
-and selected checks. The report is authoritative for current executable evidence;
+and selected checks. The later [Milestone 2 report](storage-resilience-steam.md)
+is authoritative for current executable evidence;
 the full operational fault/stress matrix remains incomplete.
 
 ## Approval decisions
@@ -23,15 +24,15 @@ the full operational fault/stress matrix remains incomplete.
 | Area | Approved policy | Remaining validation boundary |
 | --- | --- | --- |
 | Connection ownership | One dedicated writer and one dedicated reader, each exclusively owned by its worker. | Dedicated worker ownership is implemented; reads during write contention are tested. Full stress validation remains open. |
-| Mutations | Bounded writer queue and serialized, complete semantic transactions. | Serialized/idempotent concurrent writes and evidence preservation pass; queue saturation and writer cancellation remain unverified. |
-| Write transaction mode | `BEGIN IMMEDIATE`. | Selected lock, rollback and deferred-seal checks pass; broader storage-error injection remains open. |
+| Mutations | Bounded writer queue and serialized, complete semantic transactions. | Serialized/idempotent writes, capacity-32 saturation and queued/active cancellation pass; workload/soak validation remains open. |
+| Write transaction mode | `BEGIN IMMEDIATE`. | Actual BUSY/FULL, a raw-reader BUSY_SNAPSHOT, rollback and deferred-seal checks pass; simulated I/O/rollback faults exercise handling, not failing hardware. |
 | Journaling | WAL on supported local filesystems; no silent fallback. | Effective WAL configuration and local ownership are checked; other filesystems/packages remain unverified. |
 | Durability | `synchronous=FULL`. | Durability depends on SQLite's documented filesystem/hardware assumptions; selected process-kill recovery passes, while physical power loss remains untested. |
 | Runtime | A verified SQLite build containing the WAL-reset fix. | Packaging and the mechanism for supplying that runtime remain open. |
 | Contention | Initial five-second cumulative lock-contention budget per database operation, measured with a monotonic clock. | This is an approved initial policy value, not an empirically validated latency setting. |
-| Checkpointing | Passive automatic checkpoints at 1,000 WAL pages, with controlled maintenance. | This is an approved initial threshold, not a tested tuning result or WAL size cap. |
+| Checkpointing | Passive automatic checkpoints at 1,000 WAL pages, with controlled maintenance. | Reader-pinned growth beyond this threshold and later checkpoint completion pass; this is not a tuning result or WAL size cap. |
 | Crash recovery | SQLite-managed recovery followed by structural and semantic validation. | Selected intent/result process-kill boundaries pass; the complete fault matrix remains unverified. |
-| Backups | Online Backup API with completed-copy and destination validation before success. | Completion, pre-start cancellation and artifact validation pass; sustained fairness and arbitrary I/O failures remain unverified. |
+| Backups | Online Backup API with completed-copy and destination validation before success. | Completion, partial-copy cancellation, queued read service and corrupted-candidate rejection pass; finish/validation failure paths are also simulated. Sustained fairness and actual VFS finish/I/O failures remain unverified. |
 | Process ownership | One active Koiné process per database. | Second-owner and symlink-alias rejection pass locally; distribution behavior remains unverified. |
 
 Approval covers design only. The five-second budget and 1,000-page threshold must
@@ -61,7 +62,8 @@ Route every mutation through the bounded writer queue. Process accepted mutation
 in queue order without treating arrival order as source chronology or authority.
 Queue saturation produces backpressure or explicit rejection; accepted evidence
 must never disappear silently. The offline foundation selects capacity 32 and standard sync_channel queues;
-saturation/cancellation stress remains part of the incomplete operational matrix.
+deterministic saturation/cancellation checks pass in Milestone 2. The full
+operational stress matrix remains incomplete.
 
 Acquire write-transaction status before reading database state used to validate a
 mutation. Validate database-dependent assumptions again inside that transaction.

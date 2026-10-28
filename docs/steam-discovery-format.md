@@ -106,8 +106,8 @@ under privileged test environments. No Windows, Flatpak, Snap or live desktop
 layout is certified by these fixtures.
 
 Coverage is bounded to each requested root and dimension, plus the index item.
-A root with usable facts and gaps is partial; gaps without usable facts are
-inconclusive. A successful enumeration with no facts can be complete only for
+For each dimension, a root with usable facts and gaps is partial; gaps without
+usable facts are inconclusive. A successful enumeration with no facts can be complete only for
 that requested enumeration, with no negative authority. Diagnostics target the
 registered unit and retain attributable fixture-relative locator bytes in hex.
 No per-file exhaustive-negative proof is implemented. Unknown/rejected roots
@@ -125,6 +125,6 @@ observations/diagnostics under `koine.steam.report.v1`. It is an internal
 idempotence check, not an independently supported import protocol. Reports are
 trusted in-process adapter values, with consistency checks before persistence.
 
-Executable results and remaining runtime limits are recorded separately in the
-milestone report. Raw fixture inputs were handwritten for this repository; public
+[Milestone 2](storage-resilience-steam.md) records executed results and remaining
+runtime limits. Raw fixture inputs were handwritten for this repository; public
 sources establish interpretation evidence only.

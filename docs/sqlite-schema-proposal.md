@@ -114,9 +114,12 @@ convention and never chronology or authority.
 
 SHA-256 is accepted for the 32-byte content digests. The
 [canonical framing and verification protocol](#canonical-digest-framing-and-seal-verification)
-below is approved at the design level and unimplemented. It defines precise byte
-encoding, record membership, and ordering. Digests verify only their specified records;
-they do not authenticate source facts or make a conclusion authoritative.
+below is approved at the design level and implemented in the separately
+authorized [offline foundation](executable-foundation.md), with selected canonical
+vectors and guard checks rerun in [Milestone 2](storage-resilience-steam.md).
+It defines precise byte encoding, record membership, and ordering. Digests verify
+only their specified records; they do not authenticate source facts or make a
+conclusion authoritative.
 
 Path values are BLOBs with no Unicode normalization or case folding. The core
 rejects NUL in Linux filesystem paths. Other byte locators are interpreted by an

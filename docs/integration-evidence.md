@@ -32,14 +32,25 @@ does not identify the cause of the command failure or prove a particular process
 history. The [synthetic regression](acceptance-cases.md#sprawl-exit-127) preserves
 the required definite-failure behavior without importing logs or local state.
 
+## Milestone 2 format evidence
+
+On 2026-10-27, pinned steamlocate application/library models and Lutris state-flag
+documentation were independently inspected before implementing the offline Steam
+subset. The [format record](steam-discovery-format.md) links exact revisions,
+selected rules and unsupported variants. The [executed report](storage-resilience-steam.md)
+records synthetic filesystem, reconciliation, persistence and restart tests.
+These establish fixture behavior, not live client/package compatibility, account
+ownership, negative installation authority or launcher execution. No personal
+library was inspected and no external implementation code was copied.
+
 ## Implementation evidence still needed
 
 These are integration verification tasks, not reasons to change launcher authority:
 
-- Establish supported Steam discovery locations and library/manifest formats from
-  public documentation or inspected implementation evidence. Test completion,
-  malformed records, unavailable volumes, and supported package variants with
-  synthetic fixtures before using file omissions as negative evidence.
+- Extend the inspected Steam format subset to reviewed real discovery locations,
+  client/package variants and live filesystem behavior under separate authorization.
+  Completion/malformed/missing-root behavior is tested synthetically; none of the
+  inspected sources currently establishes absence authority from file omissions.
 - Verify a Steam handoff mechanism against supported launcher contexts, including
   absence, transport failure, and acceptance without a game process. Preserve
   Steam's configured execution behavior without editing `localconfig.vdf`.

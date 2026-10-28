@@ -41,11 +41,12 @@ searchable collection without replacing the applications that manage them.
 
 ## Project status
 
-The first offline Rust foundation is implemented and locally verified. Its
-[engineering report](docs/executable-foundation.md) maps all 24 unchanged acceptance
-specifications to passing synthetic tests and records 58 passing tests overall,
-canonical vectors, database conformance, process-kill recovery and remaining limits.
-There is no real Steam/Heroic integration or GTK interface yet.
+Milestone 2 adds storage fault hardening and read-only Steam discovery confined to
+explicitly supplied synthetic fixtures. The [engineering report](docs/storage-resilience-steam.md)
+records 97 passing tests with all features enabled, including all 24 unchanged
+acceptance cases, actual SQLite error/recovery checks and durable fixture discovery.
+The [first milestone report](docs/executable-foundation.md) preserves the original
+58-test checkpoint. Live Steam/Heroic integration and GTK remain unverified.
 
 Approved architecture remains stable Rust (edition 2024, Cargo), a GTK-independent
 application core with built-in adapters and bounded standard workers, serialized
@@ -69,8 +70,8 @@ dependencies, the checks can run with `--offline`.
 ```sh
 cargo check --workspace --all-targets
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
 scratch=$(mktemp -d)
 cargo run -p koine-cli -- demo "$scratch/demo.sqlite"
 cargo run -p koine-cli -- inspect "$scratch/demo.sqlite"
@@ -79,8 +80,23 @@ cargo run -p koine-cli -- inspect "$scratch/demo.sqlite"
 The demo uses fake discovery and transport evidence only. It persists a definite
 status-127 failure and inconclusive process state. `init` and `demo` require an
 unused destination; `inspect` refuses missing or unsupported databases. The
-[report](docs/executable-foundation.md#limits-and-remaining-work) explains supported
-synthetic semantics, conservative recovery and unverified failure modes.
+[report](docs/storage-resilience-steam.md#remaining-limits-and-decisions) explains supported
+synthetic semantics, conservative recovery and remaining failure/integration limits.
+
+Exercise Steam discovery only on a newly generated synthetic fixture:
+
+```sh
+python3 tools/make_steam_fixture.py "$scratch/steam-fixture"
+cargo run -p koine-cli -- init "$scratch/steam.sqlite"
+cargo run -p koine-cli -- steam-fixture "$scratch/steam.sqlite" "$scratch/steam-fixture" 11111111-1111-4111-8111-111111111111 1000000
+cargo run -p koine-cli -- inspect "$scratch/steam.sqlite" 1000000
+```
+
+The fixture must be an absolute, explicitly marked container; outside paths and
+symlinks are refused. The [format record](docs/steam-discovery-format.md) defines
+the supported subset and limits. No local manifest grants ownership or absence
+authority. The fault laboratory requires `--all-features` and accepts only newly
+created disposable lab databases.
 
 The repository is intended for eventual public release. Publication requires
 a separate review of licensing, repository contents, and disclosure boundaries.

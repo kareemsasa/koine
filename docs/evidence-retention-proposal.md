@@ -20,6 +20,9 @@ passing executable translations in the separately owner-authorized
 [offline foundation](executable-foundation.md). Selected retention, backup and
 recovery checks pass; full operational correctness remains unestablished. This
 later execution does not retroactively change the original approval evidence.
+[Milestone 2](storage-resilience-steam.md) adds executed backup-cancellation,
+failed-copy isolation and corrupted-candidate checks without expanding retention
+or restoration authority.
 
 ## Decision and provenance boundaries
 
