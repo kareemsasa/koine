@@ -320,6 +320,10 @@ fn actual_deferred_seal_failure_keeps_transaction_active_until_rollback() {
         error.sqlite_error().unwrap().code,
         rusqlite::ErrorCode::ConstraintViolation
     );
+    assert_eq!(
+        error.sqlite_error().unwrap().extended_code,
+        rusqlite::ffi::SQLITE_CONSTRAINT_FOREIGNKEY
+    );
     assert!(!c.is_autocommit());
     c.execute_batch("ROLLBACK").unwrap();
     assert!(

@@ -435,7 +435,13 @@ fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
                     dim,
                     inspected: root.inspected,
                     gaps: &gaps,
-                    usable: !root.observations.is_empty(),
+                    usable: root.observations.iter().any(|o| match dim {
+                        "entry_title" => o.name.is_some(),
+                        "presence" => o.presence,
+                        "completion" => o.completion.is_some(),
+                        "location" => true,
+                        _ => false,
+                    }),
                 },
             )?;
             parts.insert(dim, pid);
@@ -652,7 +658,7 @@ fn application(s: &Snapshot, report: &Report) -> Result<Vec<Record>> {
             dim: "steam_index",
             inspected: report.plan.index_revision.is_some(),
             gaps: &index_gaps,
-            usable: report.plan.index_revision.is_some(),
+            usable: report.plan.index_issues.is_empty(),
         },
     )?;
     statuses.push(index_status);

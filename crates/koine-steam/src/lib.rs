@@ -175,7 +175,7 @@ impl FixtureFs {
         {
             Ok(fields) => {
                 for (name, value) in fields {
-                    if name.parse::<u32>().is_err() {
+                    if name.is_empty() || !name.bytes().all(|b| b.is_ascii_digit()) {
                         continue;
                     }
                     let parsed = value

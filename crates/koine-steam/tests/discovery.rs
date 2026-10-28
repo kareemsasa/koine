@@ -519,6 +519,10 @@ fn optional_malformed_title_preserves_installation_and_supported_rule_is_exact()
     run(&store, dir.path(), id(), 10);
     let mut s = store.snapshot().unwrap();
     assert_eq!(s.rows("installations").count(), 1);
+    assert!(
+        s.rows("coverage_results")
+            .any(|r| r.is("dimension", "entry_title") && r.is("outcome", "inconclusive"))
+    );
     let rule = s
         .rows("rule_versions")
         .find(|r| r.is("name", koine_core::rules::STEAM_INTERPRETATION))
