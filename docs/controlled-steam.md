@@ -351,9 +351,14 @@ substantial storage work.
   bounded scheduling, operational recovery files, CLI, synthetic integration,
   crash/fault tests and fixture tooling. All validation above passed before this
   local implementation commit.
-- The following documentation commit consolidates this report and synchronizes
-  current README/contracts links. Its verified hash and post-commit Git checkpoint
-  are added to the delivery audit below once observed.
+- `35f2511` — consolidated engineering report, compatibility/evidence boundaries,
+  exact validation results and synchronization of current README/contracts links.
+
+At the post-documentation checkpoint `35f2511`, `git status --short` produced no
+output: the working tree was clean. The subsequent documentation-only delivery
+audit commit records these observed hashes and status. Its own hash is available
+in this file's Git history and the final delivery response; final Git status is
+checked again after that commit. No commit was pushed.
 
 This is local implementation, local validation, local commit and control-state
 synchronization. No publication, deployment, real-library validation or stakeholder
