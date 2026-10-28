@@ -89,7 +89,7 @@ pub(super) fn read_snapshot(c: &Connection) -> Result<Snapshot> {
     end?;
     result
 }
-fn normalized(mut r: Record) -> Result<Record> {
+pub(super) fn normalized(mut r: Record) -> Result<Record> {
     let m = CATALOG
         .iter()
         .find(|m| m.table == r.table)

@@ -67,16 +67,21 @@ pub(super) fn backup(
     let partial = parent.join(format!(".koine-{}.partial", id()));
     io(OpenOptions::new()
         .write(true)
+        .mode(0o600)
         .create_new(true)
         .open(&partial))?;
     let mut dest = open_rw(&partial)?;
     deadline();
     let handle = BackupHandle::new(source, &mut dest)?;
+    let mut steps = 0;
     loop {
         if cancel.load(Ordering::Relaxed) {
             return Err("backup cancelled; incomplete artifact is not usable".into());
         }
-        match handle.step() {
+        steps += 1;
+        let code = handle.step();
+        jobs::checkpoint(jobs::Point::BackupStep(steps))?;
+        match code {
             rusqlite::ffi::SQLITE_DONE => break,
             rusqlite::ffi::SQLITE_OK => {}
             rusqlite::ffi::SQLITE_BUSY | rusqlite::ffi::SQLITE_LOCKED if waiting() => {
@@ -91,9 +96,10 @@ pub(super) fn backup(
                 Read::Snapshot(reply) => {
                     let saved = BUDGET.get();
                     let _ = reply.send(read_snapshot(source));
+                    jobs::checkpoint(jobs::Point::BackupRead)?;
                     BUDGET.set(saved);
                 }
-                Read::Backup(_, _, reply) => {
+                Read::Backup(_, _, _, reply) => {
                     let _ = reply.send(Err("backup already active".into()));
                 }
                 Read::Stop => {
@@ -105,7 +111,14 @@ pub(super) fn backup(
         thread::yield_now();
     }
     handle.finish()?;
+    jobs::checkpoint(jobs::Point::BackupFinish)?;
     dest.close().map_err(|(_, e)| e.to_string())?;
+    #[cfg(feature = "fault-injection")]
+    jobs::corrupt_candidate(&partial)?;
+    jobs::checkpoint(jobs::Point::BackupValidate)?;
+    if cancel.load(Ordering::Relaxed) {
+        return Err("backup cancelled before finalization".into());
+    }
     let check = open_rw(&partial)?;
     check_identity(&check)?;
     integrity(&check)?;

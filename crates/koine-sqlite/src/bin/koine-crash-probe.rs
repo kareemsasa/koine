@@ -36,7 +36,13 @@ fn run() -> Result<()> {
     );
     let mut held_store = None;
     let mut held_connection = None;
-    if mode == "uncommitted-intent" {
+    if mode == "uncommitted-result" {
+        let c = Connection::open(path).map_err(|e| e.to_string())?;
+        c.execute_batch("PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL; BEGIN IMMEDIATE")
+            .map_err(|e| e.to_string())?;
+        c.execute("INSERT INTO coverage_results(id,collection_id,unit_id,dimension,authority_scope_id,outcome) SELECT ?1,collection_id,id,dimension,authority_scope_id,'complete' FROM requested_units WHERE collection_id=?2 LIMIT 1",params![id(),aid]).map_err(|e|e.to_string())?;
+        held_connection = Some(c);
+    } else if mode == "uncommitted-intent" {
         let c = Connection::open(path).map_err(|e| e.to_string())?;
         c.execute_batch("PRAGMA foreign_keys=ON; BEGIN IMMEDIATE")
             .map_err(|e| e.to_string())?;
@@ -44,7 +50,45 @@ fn run() -> Result<()> {
         held_connection = Some(c);
     } else {
         let store = Store::open(path)?;
-        store.write(vec![intent])?;
+        if mode == "committed-result" {
+            let s = store.snapshot()?;
+            let mut rows = Vec::new();
+            for unit in s
+                .rows("requested_units")
+                .filter(|u| u.is("collection_id", aid))
+            {
+                let cid = id();
+                let common = [
+                    ("collection_id", aid.clone().into()),
+                    ("unit_id", unit.get("id").clone()),
+                    ("dimension", unit.get("dimension").clone()),
+                    ("authority_scope_id", unit.get("authority_scope_id").clone()),
+                    ("outcome", "complete".into()),
+                ];
+                let mut coverage = Record::new("coverage_results", common.clone());
+                coverage.set("id", cid.clone());
+                let mut part = Record::new("coverage_parts", common);
+                part.set("id", id());
+                part.set("coverage_id", cid);
+                part.set("part_key", "whole");
+                part.set("selector_kind", "whole_unit");
+                part.set("inspection", "inspected");
+                rows.extend([coverage, part]);
+            }
+            rows.push(Record::new(
+                "collection_closures",
+                [
+                    ("collection_id", aid.clone().into()),
+                    ("outcome", "complete".into()),
+                    ("finished_at", 20i64.into()),
+                    ("reason", "synthetic crash boundary".into()),
+                    ("result_protocol", "koine.result.v1".into()),
+                ],
+            ));
+            store.write(rows)?;
+        } else {
+            store.write(vec![intent])?;
+        }
         if mode == "committed-failure" {
             store.write(vec![Record::new(
                 "handoff_records",
@@ -61,7 +105,7 @@ fn run() -> Result<()> {
                     ("reason", "synthetic status-127 failure".into()),
                 ],
             )])?;
-        } else if mode != "committed-intent" {
+        } else if mode != "committed-intent" && mode != "committed-result" {
             return Err("unsupported fault mode".into());
         }
         held_store = Some(store);

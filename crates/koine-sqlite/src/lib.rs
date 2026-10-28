@@ -11,6 +11,7 @@ use rusqlite::{
 use std::{
     cell::Cell,
     fs::{File, OpenOptions},
+    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -20,6 +21,10 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+#[cfg(feature = "fault-injection")]
+pub mod faults;
+pub mod jobs;
+pub use jobs::{Cancellation, Inspection, SubmitError, WriteOutcome, WriteState, WriteTicket};
 mod backup;
 mod catalog;
 use backup::backup;
@@ -40,14 +45,24 @@ struct Reservation {
     launcher: String,
     capable: bool,
 }
+type Planner = Box<dyn FnOnce(&Snapshot) -> Result<Vec<Record>> + Send>;
 enum Write {
     Checkpoint(Reply<Checkpoint>),
     Apply(Vec<Record>, bool, Reply<Option<Reservation>>),
+    Job(
+        Vec<Record>,
+        Cancellation,
+        jobs::Fault,
+        mpsc::Sender<WriteOutcome>,
+    ),
+    Plan(Planner, Reply<()>),
+    #[cfg(feature = "fault-injection")]
+    LimitPages(i64, Reply<i64>),
     Stop,
 }
 enum Read {
     Snapshot(Reply<Snapshot>),
-    Backup(PathBuf, Arc<AtomicBool>, Reply<()>),
+    Backup(PathBuf, Arc<AtomicBool>, jobs::Fault, Reply<()>),
     Stop,
 }
 pub struct Store {
@@ -55,6 +70,8 @@ pub struct Store {
     reader: SyncSender<Read>,
     workers: Vec<JoinHandle<()>>,
     _ownership: File,
+    #[cfg(feature = "fault-injection")]
+    fault_lab: bool,
 }
 thread_local! {static BUDGET:Cell<Duration>=const {Cell::new(Duration::from_secs(5))};}
 fn deadline() {
@@ -64,6 +81,9 @@ fn waiting() -> bool {
     !BUDGET.get().is_zero()
 }
 fn lock_pause() -> bool {
+    if jobs::checkpoint(jobs::Point::BeforeBegin).is_err() {
+        return false;
+    }
     let remaining = BUDGET.get();
     if remaining.is_zero() {
         return false;
@@ -74,7 +94,10 @@ fn lock_pause() -> bool {
     waiting()
 }
 fn sql<T>(r: rusqlite::Result<T>) -> Result<T> {
-    r.map_err(|e| e.to_string())
+    r.map_err(|e| {
+        jobs::sql_error(&e);
+        e.to_string()
+    })
 }
 fn io<T>(r: std::io::Result<T>) -> Result<T> {
     r.map_err(|e| e.to_string())
@@ -126,21 +149,31 @@ fn configure(c: &mut Connection, reader: bool) -> Result<()> {
 }
 fn begin(c: &Connection) -> Result<()> {
     loop {
+        jobs::checkpoint(jobs::Point::BeforeBegin)?;
         match c.execute_batch("BEGIN IMMEDIATE") {
             Ok(()) => return Ok(()),
             Err(e)
                 if e.sqlite_error_code() == Some(rusqlite::ErrorCode::DatabaseBusy)
+                    && e.sqlite_error()
+                        .is_none_or(|e| e.extended_code != rusqlite::ffi::SQLITE_BUSY_SNAPSHOT)
                     && waiting() =>
             {
                 lock_pause();
             }
-            Err(e) => return Err(e.to_string()),
+            Err(e) => {
+                jobs::sql_error(&e);
+                return Err(e.to_string());
+            }
         }
     }
 }
 fn apply(c: &Connection, rows: Vec<Record>, fresh_attempt: bool) -> Result<Option<Reservation>> {
     deadline();
-    begin(c)?;
+    jobs::checkpoint(jobs::Point::BeforeBegin)?;
+    if c.is_autocommit() {
+        begin(c)?;
+    }
+    jobs::phase(jobs::Phase::Active);
     let result = (|| {
         let existing = load(c)?;
         if fresh_attempt
@@ -179,7 +212,7 @@ fn apply(c: &Connection, rows: Vec<Record>, fresh_attempt: bool) -> Result<Optio
             None
         };
         let rows = prepare(&existing, rows)?;
-        for r in &rows {
+        for (index, r) in rows.iter().enumerate() {
             let m = CATALOG.iter().find(|m| m.table == r.table).ok_or("table")?;
             if !existing
                 .rows(&r.table)
@@ -187,21 +220,32 @@ fn apply(c: &Connection, rows: Vec<Record>, fresh_attempt: bool) -> Result<Optio
             {
                 insert(c, r)?
             }
+            jobs::checkpoint(jobs::Point::AfterInsert(index + 1))?;
         }
         let proposed = load(c)?;
         reconcile::validate(&proposed)?;
         integrity(c)?;
         loop {
+            jobs::checkpoint(jobs::Point::BeforeCommit)?;
+            jobs::phase(jobs::Phase::CommitAttempted);
             match c.execute_batch("COMMIT") {
-                Ok(()) => return Ok(reservation),
+                Ok(()) => {
+                    jobs::phase(jobs::Phase::Committed);
+                    jobs::checkpoint(jobs::Point::AfterCommit)?;
+                    return Ok(reservation);
+                }
                 Err(e)
                     if e.sqlite_error_code() == Some(rusqlite::ErrorCode::DatabaseBusy)
+                        && e.sqlite_error().is_none_or(|e| {
+                            e.extended_code != rusqlite::ffi::SQLITE_BUSY_SNAPSHOT
+                        })
                         && !c.is_autocommit()
                         && waiting() =>
                 {
                     lock_pause();
                 }
                 Err(e) => {
+                    jobs::sql_error(&e);
                     return Err(format!(
                         "commit outcome requires inspection; no body replay: {e}"
                     ));
@@ -209,13 +253,18 @@ fn apply(c: &Connection, rows: Vec<Record>, fresh_attempt: bool) -> Result<Optio
             }
         }
     })();
-    if result.is_err()
-        && !c.is_autocommit()
-        && let Err(e) = c.execute_batch("ROLLBACK")
-    {
-        return Err(format!(
-            "transaction outcome uncertain; preserve database and inspect identities: {e}"
-        ));
+    if result.is_err() && !c.is_autocommit() {
+        let rollback = jobs::rollback_checkpoint()
+            .and_then(|_| c.execute_batch("ROLLBACK").map_err(|e| e.to_string()));
+        match rollback {
+            Ok(()) => jobs::phase(jobs::Phase::Active),
+            Err(e) => {
+                jobs::phase(jobs::Phase::CommitAttempted);
+                return Err(format!(
+                    "transaction outcome uncertain; preserve database and inspect identities: {e}"
+                ));
+            }
+        }
     }
     result
 }
@@ -229,7 +278,11 @@ impl Store {
     fn start(path: &Path, create: bool) -> Result<Self> {
         runtime()?;
         if create {
-            io(OpenOptions::new().write(true).create_new(true).open(path))?;
+            io(OpenOptions::new()
+                .write(true)
+                .mode(0o600)
+                .create_new(true)
+                .open(path))?;
         }
         let ownership = io(OpenOptions::new().read(true).write(true).open(path))?;
         ownership
@@ -304,9 +357,38 @@ impl Store {
                 while let Ok(msg) = wrx.recv() {
                     match msg {
                         Write::Apply(rows, fresh, reply) => {
+                            jobs::reset(Cancellation::default(), None);
                             let _ = reply.send(apply(&writer, rows, fresh));
                         }
+                        Write::Job(rows, cancel, fault, reply) => {
+                            jobs::reset(cancel, fault);
+                            let result = apply(&writer, rows, false);
+                            let _ = reply.send(jobs::receipt(&result));
+                        }
+                        Write::Plan(plan, reply) => {
+                            jobs::reset(Cancellation::default(), None);
+                            deadline();
+                            let mut result = (|| {
+                                begin(&writer)?;
+                                let snapshot = load(&writer)?;
+                                let rows = plan(&snapshot)?;
+                                apply(&writer, rows, false).map(|_| ())
+                            })();
+                            if !writer.is_autocommit() && let Err(error) = writer.execute_batch("ROLLBACK") {
+                                result = Err(format!("planner transaction outcome uncertain; inspect durable identities: {error}"));
+                            }
+                            let _ = reply.send(result);
+                        }
+                        #[cfg(feature = "fault-injection")]
+                        Write::LimitPages(pages, reply) => {
+                            let _ = reply.send(sql(writer.query_row(
+                                &format!("PRAGMA max_page_count={pages}"),
+                                [],
+                                |r| r.get(0),
+                            )));
+                        }
                         Write::Checkpoint(reply) => {
+                            jobs::reset(Cancellation::default(), None);
                             deadline();
                             let _ = reply.send(sql(writer.query_row(
                                 "PRAGMA wal_checkpoint(PASSIVE)",
@@ -322,6 +404,9 @@ impl Store {
                         }
                         Write::Stop => break,
                     }
+                    // Never reuse a connection with an unresolved transaction.
+                    // Dropped queued replies report unavailable/uncertain outcomes.
+                    if !writer.is_autocommit() { break; }
                 }
             })
             .map_err(|e| e.to_string())?;
@@ -333,7 +418,8 @@ impl Store {
                         Read::Snapshot(reply) => {
                             let _ = reply.send(read_snapshot(&reader));
                         }
-                        Read::Backup(path, cancel, reply) => {
+                        Read::Backup(path, cancel, fault, reply) => {
+                            jobs::reset(Cancellation::default(), fault);
                             let mut stopping = false;
                             let _ =
                                 reply.send(backup(&reader, &path, &cancel, &rrx, &mut stopping));
@@ -351,7 +437,101 @@ impl Store {
             reader: rtx,
             workers: vec![w, r],
             _ownership: ownership,
+            #[cfg(feature = "fault-injection")]
+            fault_lab: false,
         })
+    }
+    /// Plan against the writer snapshot inside the same IMMEDIATE transaction.
+    /// The planner must be pure: it must not block or call back into this Store.
+    pub fn mutate(
+        &self,
+        plan: impl FnOnce(&Snapshot) -> Result<Vec<Record>> + Send + 'static,
+    ) -> Result<()> {
+        let (tx, rx) = mpsc::channel();
+        self.writer
+            .send(Write::Plan(Box::new(plan), tx))
+            .map_err(|_| "writer unavailable")?;
+        rx.recv()
+            .map_err(|_| "mutation outcome unknown; inspect identities")?
+    }
+    /// Nonblocking queue admission. Full/disconnected means the job was not accepted.
+    pub fn try_submit(
+        &self,
+        rows: Vec<Record>,
+        cancel: Cancellation,
+    ) -> std::result::Result<WriteTicket, SubmitError> {
+        let (tx, rx) = mpsc::channel();
+        self.writer
+            .try_send(Write::Job(rows, cancel, None, tx))
+            .map_err(|e| match e {
+                mpsc::TrySendError::Full(_) => SubmitError::Full,
+                mpsc::TrySendError::Disconnected(_) => SubmitError::Disconnected,
+            })?;
+        Ok(WriteTicket(rx))
+    }
+    /// Inspect every supplied immutable operation record before any retry.
+    /// Partial or conflicting content requires investigation, not body replay.
+    pub fn inspect_operation(&self, rows: &[Record]) -> Result<Inspection> {
+        jobs::inspect(&self.snapshot()?, rows)
+    }
+    pub fn request_snapshot(&self) -> Result<Receiver<Result<Snapshot>>> {
+        let (tx, rx) = mpsc::channel();
+        self.reader
+            .send(Read::Snapshot(tx))
+            .map_err(|_| "reader unavailable")?;
+        Ok(rx)
+    }
+    #[cfg(feature = "fault-injection")]
+    pub fn create_fault_lab(path: impl AsRef<Path>) -> Result<Self> {
+        let mut store = Self::create(path)?;
+        store.fault_lab = true;
+        Ok(store)
+    }
+    #[cfg(feature = "fault-injection")]
+    pub fn fault_submit(
+        &self,
+        rows: Vec<Record>,
+        cancel: Cancellation,
+        fault: faults::FaultPlan,
+    ) -> std::result::Result<WriteTicket, SubmitError> {
+        if !self.fault_lab {
+            return Err(SubmitError::FaultLabRequired);
+        }
+        let (tx, rx) = mpsc::channel();
+        self.writer
+            .try_send(Write::Job(rows, cancel, Some(fault), tx))
+            .map_err(|e| match e {
+                mpsc::TrySendError::Full(_) => SubmitError::Full,
+                mpsc::TrySendError::Disconnected(_) => SubmitError::Disconnected,
+            })?;
+        Ok(WriteTicket(rx))
+    }
+    #[cfg(feature = "fault-injection")]
+    pub fn fault_limit_pages(&self, pages: i64) -> Result<i64> {
+        if !self.fault_lab {
+            return Err("fault lab required".into());
+        }
+        let (tx, rx) = mpsc::channel();
+        self.writer
+            .send(Write::LimitPages(pages, tx))
+            .map_err(|_| "writer unavailable")?;
+        rx.recv().map_err(|_| "writer unavailable")?
+    }
+    #[cfg(feature = "fault-injection")]
+    pub fn fault_backup(
+        &self,
+        path: impl AsRef<Path>,
+        cancel: Arc<AtomicBool>,
+        fault: faults::FaultPlan,
+    ) -> Result<()> {
+        if !self.fault_lab {
+            return Err("fault lab required".into());
+        }
+        let (tx, rx) = mpsc::channel();
+        self.reader
+            .send(Read::Backup(path.as_ref().into(), cancel, Some(fault), tx))
+            .map_err(|_| "reader unavailable")?;
+        rx.recv().map_err(|_| "backup outcome unknown")?
     }
     pub fn checkpoint(&self) -> Result<Checkpoint> {
         let (tx, rx) = mpsc::channel();
@@ -391,7 +571,7 @@ impl Store {
     pub fn backup(&self, path: impl AsRef<Path>, cancel: Arc<AtomicBool>) -> Result<()> {
         let (tx, rx) = mpsc::channel();
         self.reader
-            .send(Read::Backup(path.as_ref().into(), cancel, tx))
+            .send(Read::Backup(path.as_ref().into(), cancel, None, tx))
             .map_err(|_| "reader unavailable")?;
         rx.recv()
             .map_err(|_| "backup outcome unavailable; validate artifact")?
