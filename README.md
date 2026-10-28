@@ -83,6 +83,12 @@ unused destination; `inspect` refuses missing or unsupported databases. The
 [report](docs/storage-resilience-steam.md#remaining-limits-and-decisions) explains supported
 synthetic semantics, conservative recovery and remaining failure/integration limits.
 
+CI runs these checks, plus default-feature tests and the documentation check, as
+[`tools/ci_checks.sh`](tools/ci_checks.sh) on every pull request and on `main`. The
+[workflow](.github/workflows/ci.yml) uses an Arch Linux container pinned by image
+digest and a dated package snapshot, which supply a SQLite runtime of at least
+3.51.3. Report security issues privately as described in [SECURITY.md](SECURITY.md).
+
 Exercise Steam discovery only on a newly generated synthetic fixture:
 
 ```sh
