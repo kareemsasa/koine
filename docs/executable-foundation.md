@@ -163,14 +163,16 @@ git diff --check
 The generated artifacts were compared before/after regeneration. Cargo.lock is
 committed. Verification used stable rustc 1.99.1, Cargo 1.99.1 and system-linked
 SQLite 3.54.0 on this Linux environment. Rust was initially absent; the official
-toolchain and dependency cache were installed under `/tmp` without changing system
-configuration. For this session, `. /tmp/koine-cargo-env` selects them; normal
+toolchain and dependency cache were installed in temporary storage outside the
+repository without changing system configuration. For this session, a temporary
+isolated toolchain environment selects them; normal
 contributors need their own Rust installation and SQLite development library.
 The declared Rust minimum is 1.89; that older toolchain was not separately tested.
 
 The CLI demo and a subsequent independent inspect invocation both reported one
 synthetic attempt as `handoff=Failed`, `issuance=issued`, `status=Some(127)`,
-`process=Inconclusive`. Both used a new disposable `/tmp` database. No personal
+`process=Inconclusive`. Both used a new disposable database in temporary storage
+outside the repository. No personal
 library was read, no Steam/Heroic command was executed and no external launcher
 configuration was modified.
 
@@ -221,6 +223,11 @@ of the implementation. No task-time or estimate values are invented.
 - The documentation commit containing this report records the current results and
   reconciles earlier current-state summaries; its hash is available in local Git
   history. No commit in this milestone is pushed.
+
+*Update 2026-10-28:* the statement above records this milestone's local-only state
+when the report was written. Commits `9657393` and `a85d165` are now in the
+published history on `main`; publication of the repository was owner-authorized on
+2026-10-25.
 
 Recommended next substantial milestone: harden the storage fault matrix and add a
 reviewed read-only Steam discovery adapter using versioned synthetic file fixtures,

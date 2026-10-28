@@ -106,8 +106,7 @@ the supported subset and limits. No local manifest grants ownership or absence
 authority. The fault laboratory requires `--all-features` and accepts only newly
 created disposable lab databases.
 
-The repository is intended for eventual public release. Publication requires
-a separate review of licensing, repository contents, and disclosure boundaries.
+The owner authorized public release of this repository on 2026-10-25.
 
 Configured discovery uses separate configuration and refresh operations. Start with
 `steam-root-set DATABASE ROOT_UUID native synthetic ABSOLUTE_FIXTURE_ROOT`, then

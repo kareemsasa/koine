@@ -17,8 +17,8 @@ within that mandate, not new architecture approvals.
 
 Before edits, Git was clean at `c761c32`. Re-execution confirmed **97 all-feature
 tests passing**, including all 24 acceptance translations. Rust was absent from
-the default PATH; the documented isolated `/tmp/koine-cargo-env` environment was
-reused. No system components were installed.
+the default PATH; the documented isolated temporary toolchain environment outside
+the repository was reused. No system components were installed.
 
 ## Implemented capabilities
 
@@ -303,7 +303,8 @@ library reference remained an explicit gap even though that library was separate
 configured/scanned. Outcomes were partial/complete; the batch was partial with two
 durable observations. Source bytes remained identical. Independent SQL checks
 returned `integrity_check = ok`, zero foreign-key violations, WAL mode, zero
-entitlements and zero negative claims. Logs and runtime data stayed under `/tmp`.
+entitlements and zero negative claims. Logs and runtime data stayed in temporary
+storage outside the repository.
 
 During development, tests exposed mismatched synthetic authority provenance and a
 failed aggregate lacking failed coverage. Both were corrected in the new v2 path;
@@ -311,6 +312,17 @@ the final suites pass. An initial validation shell lacked Cargo on PATH and one
 artifact-check script referenced a nonexistent directory; the documented toolchain
 and corrected artifact list were then used successfully. No failed check is being
 presented as passing. No synthetic result is represented as a real Steam observation.
+
+*Update 2026-10-28:* after review fixes `f66af51` and `46460c5` in PR #2, 140
+all-feature and 119 default-feature tests pass, with none failed or ignored (Steam
+configuration/journal/scheduler unit tests 16; configured Steam
+integration/regression tests 23). CI on `main` at merge commit `8054216` passed.
+The counts and table above remain the Milestone 3 checkpoint.
+
+*Update 2026-10-28:* the authorized real-mode tests added in `46460c5` exercise the
+real-mode code path with synthetic data in temporary test databases. Their
+`koine.steam.configured` and `steam:local` records are test artifacts, not
+observations of a real library. No real Steam library has been read.
 
 ## Storage and compatibility limits
 
@@ -365,3 +377,8 @@ synchronization. No publication, deployment, real-library validation or stakehol
 acceptance is inferred. Historical milestone results and approval records remain
 preserved; no estimates or unmeasured work-time values were introduced. The only
 conditional deliverable still blocked is exact-root real-library verification.
+
+*Update 2026-10-28:* the Milestone 3 commits `3199aab`, `35f2511` and `0f91bc6`
+were later pushed and, with review fixes `f66af51` and `46460c5`, merged through
+PR #2 into `8054216` on 2026-10-28, under the owner-authorized publication of
+2026-10-25. Exact-root real-library verification remains blocked.

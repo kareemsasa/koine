@@ -145,7 +145,8 @@ A separate CLI demonstration used `tools/make_steam_fixture.py` to create two ne
 libraries, then init → discover → separate-process inspect. It reported 2 roots,
 2 observations, 0 diagnostics, 74 immutable records, 2 entries, 1 collection and
 0 attempts. Inspection output was identical to the persisted conclusions from
-discovery. Only synthetic `/tmp` data was used. Generated runtime data is excluded
+discovery. Only synthetic data in temporary storage outside the repository was
+used. Generated runtime data is excluded
 from Git; `.partial` candidates have an explicit ignore rule.
 
 ## Remaining limits and decisions
