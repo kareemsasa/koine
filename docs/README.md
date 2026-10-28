@@ -70,8 +70,7 @@ The [second](storage-resilience-steam.md)
 and [first](executable-foundation.md) reports preserve the 97- and 58-test
 checkpoints and all 24 unchanged acceptance translations. Real Steam verification
 remains blocked by exact-root authorization; Heroic integration remains unverified.
-Publication was owner-authorized on 2026-10-25; the README's separate
-pre-publication review is not recorded as complete.
+Publication was owner-authorized on 2026-10-25.
 
 A–D, logical mapping, physical design, operational, migration and initial retention
 approvals retain their recorded boundaries; test execution does not expand them.

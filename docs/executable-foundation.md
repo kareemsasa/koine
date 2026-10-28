@@ -224,6 +224,11 @@ of the implementation. No task-time or estimate values are invented.
   reconciles earlier current-state summaries; its hash is available in local Git
   history. No commit in this milestone is pushed.
 
+*Update 2026-10-28:* the statement above records this milestone's local-only state
+when the report was written. Commits `9657393` and `a85d165` are now in the
+published history on `main`; publication of the repository was owner-authorized on
+2026-10-25.
+
 Recommended next substantial milestone: harden the storage fault matrix and add a
 reviewed read-only Steam discovery adapter using versioned synthetic file fixtures,
 then connect it to the durable core. Resolve real source identity, format and
