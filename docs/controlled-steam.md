@@ -166,10 +166,12 @@ aggregate with useful work is partial. Scheduling and delivery order never decid
 claim ordering or renew source freshness.
 
 *Update 2026-10-29:* a configuration change after admission (root removed,
-reconfigured or its authorization changed) is not a persistence failure. Before
-any source access, only the affected attempt closes inconclusively with the
-diagnostic `configuration-changed-after-admission` through the journaled report
-path; other roots in the same request still run and later requests are admitted.
+reconfigured or its authorization changed) is not a persistence failure. It is
+detected when each attempt starts, before its root is opened: only that attempt
+closes inconclusively with the diagnostic `configuration-changed-after-admission`
+through the journaled report path; other roots in the same request still run and
+later requests are admitted. A change made after an attempt has begun reading is
+not detected by this check.
 
 Cancellation is cooperative between bounded operations, roots and manifests.
 Cancellation before scanning closes all original units inconclusively. After a

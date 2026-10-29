@@ -827,6 +827,58 @@ mod tests {
         assert!(!inspected);
     }
     #[test]
+    fn real_root_authorized_only_after_admission_is_not_read_by_that_request() {
+        let lab = Lab::new();
+        let hold = lab.add("hold");
+        let r = lab.add_authorized_real("real");
+        let path = lab.root(&r).path().to_path_buf();
+        // Configure the same path again so the root is real-mode and unauthorized.
+        {
+            let mut settings = lab.settings.lock().unwrap();
+            settings.remove(&r).unwrap();
+            settings.set(&r, &path, "native", false).unwrap();
+        }
+        assert!(!lab.root(&r).authorized());
+        let (observer, reached, release) = gated_once();
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let first = scheduler.refresh(id(), 10, &[hold]).unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        let admitted = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        lab.settings.lock().unwrap().authorize(&r, &path).unwrap();
+        assert!(lab.root(&r).authorized());
+        release.send(()).unwrap();
+        assert_eq!(first.wait().state, State::Complete);
+        let p = admitted.wait();
+        assert_eq!(p.state, State::Inconclusive);
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.observations, p.inspected_records), (0, 0));
+        let (outcome, evidence, codes, inspected) = closed(&lab, &admitted.id);
+        assert_eq!(outcome, "inconclusive");
+        assert_eq!(evidence, 0);
+        assert!(codes.iter().any(|c| c == CHANGED), "{codes:?}");
+        assert!(!inspected);
+        // A fresh request is admitted and uses the authorization now recorded.
+        let next = scheduler.refresh(id(), 11, &[r]).unwrap();
+        let p = next.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!(p.state, State::Complete);
+        assert_eq!(p.observations, 2);
+        let (outcome, evidence, _, inspected) = closed(&lab, &next.id);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 2, true)
+        );
+    }
+    #[test]
     fn pending_registration_reopens_with_original_scope_and_no_source_read() {
         let lab = Lab::new();
         let r = lab.add("root");
