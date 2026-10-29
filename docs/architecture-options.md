@@ -35,14 +35,12 @@ limitations and further decisions do not expand A–D's original scope.
 | C: Desktop UI | Approved | GTK4/libadwaita using Rust bindings. | Respect GTK main-thread requirements. Blocking discovery, database operations, and handoff work stay outside the UI thread, with results returned safely for presentation. Detailed UI design remains open. |
 | D: Persistence | Approved | SQLite, relational separation of records and evidence; physical schema deferred. | No particular schema, migration strategy, connection model, or retention policy is approved. Claim provenance, stable identities, uncertainty, and justified supersession remain mandatory. |
 
-The owner approved A–D based on the comparison presented in the assistant's message
-and the established contracts. The owner explicitly stated:
-
-> I have reviewed the comparison in your message, not independently inspected the local `architecture-options.md` file.
-
-This records engineering approval of the four choices, not independent review or
-blanket approval of every detail in this file. Module layouts, the connection/write
-coordination model, attempt-persistence sequencing, and other detailed proposals
+The owner approved A–D based on the presented comparison and the established
+contracts. This records engineering approval of the four choices and their
+recorded boundaries, not independent review of this file, verification against a
+repository revision, or blanket approval of every detail in this file. Module
+layouts, the connection/write coordination model, attempt-persistence sequencing,
+and other detailed proposals
 below remain engineering proposals wherever not expressly covered by A–D or the
 subsequent physical-design, operational-policy, migration-policy or initial
 retention-policy approvals.
@@ -313,7 +311,8 @@ tests or an honest inconclusive process state in the authorized offline foundati
 but they do limit claims about completed integrations and the persistent desktop
 slice.
 
-Publication still requires separate authorization. Architecture approval and a
+Publication required authorization separate from these approvals; it was
+separately owner-authorized on 2026-10-25. Architecture approval and a
 local documentation commit do not establish implementation or test completion.
 
 ## Decision history
@@ -322,18 +321,19 @@ local documentation commit do not establish implementation or test completion.
   and open questions in local commit `2a7c309`. No architecture choice was approved
   at that checkpoint.
 - **Subsequent owner engineering review:** The owner approved A–D as presented in
-  the message comparison, with the boundaries recorded above, and explicitly did
-  not claim independent inspection of this file. The owner requested a
-  documentation-only record of approval. No implementation, executed-test, or
-  publication status was advanced by that review.
+  the comparison, with the boundaries recorded above; the approval covers the four
+  choices, not independent inspection of this file or every detail in it. The
+  owner requested only a documentation record of the approval. No implementation,
+  executed-test, or publication status was
+  advanced by that review.
 - **Subsequent operational review, recorded 2026-10-27:** The owner approved the
-  uploaded [SQLite operational policy](sqlite-operational-policy.md) at design
+  [SQLite operational policy](sqlite-operational-policy.md) at design
   level, including initial contention/checkpoint values. Backup completion/reader
   availability and transaction uncertainty remain explicit conformance obligations.
   This does not expand A–D's original approval scope or authorize implementation,
   runtime validation, or publication.
-- **Subsequent migration review, recorded 2026-10-27:** The owner independently
-  reviewed the uploaded [migration policy](sqlite-migration-proposal.md) against the
+- **Subsequent migration review, recorded 2026-10-27:** The owner reviewed
+  the [migration policy](sqlite-migration-proposal.md) against the
   approved physical schema, operational policy and SQLite documentation, and
   approved the design with metadata approved in principle. Each actual migration
   still requires independent review and the retained implementation conditions.

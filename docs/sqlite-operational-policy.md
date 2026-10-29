@@ -1,11 +1,13 @@
 # Approved SQLite operational policy
 
 **Status: Approved design; selected offline operational checks now recorded.**
-Recorded 2026-10-27 from the owner's review of the uploaded operational proposal
-at reported repository baseline `5f578cc`. The owner reviewed the proposal against
-Koiné's approved persistence contracts and current SQLite documentation, found no
-blocking contradiction, and explicitly approved the operational design. This does
-not establish independent inspection of local Git state or successful execution.
+Recorded 2026-10-27 from the owner's review of the operational proposal identified
+as repository baseline `5f578cc`. The owner reported reviewing the proposal
+against Koiné's approved persistence contracts and current SQLite documentation
+and finding no blocking contradiction, and explicitly approved the operational
+design. Identifying that baseline does not establish that the reviewed proposal
+was verified against that Git revision, and design approval does not establish
+successful execution.
 
 The policy originated as an engineering proposal; owner approval establishes its
 design obligations without changing that provenance. It supplements
@@ -215,7 +217,7 @@ durable-finalization policy and restoration, packaging and the runtime-supply
 mechanism remain open. Routine crash recovery is approved as
 design; repair and restore tooling are not. No implementation, database creation,
 executable SQL, migrations, Rust code, runtime tests, live integrations or
-publication are authorized by this approval or its documentation record.
+publication are authorized by this approval.
 
 The separately approved [migration/schema-upgrade policy](sqlite-migration-proposal.md)
 establishes a maintenance gate, whole-path transaction, mandatory validated safety
@@ -259,15 +261,16 @@ the narrow engine behaviors below, not executable correctness of Koiné:
 
 ## Decision history
 
-- Proposal at reported baseline `5f578cc`: operational alternatives and a
-  recommendation were presented without repository changes or runtime validation.
-- Owner operational review, recorded 2026-10-27: approved the uploaded proposal at
+- Proposal identified as baseline `5f578cc` (an identification, not verification
+  against that revision): operational alternatives and a recommendation were
+  presented without repository changes or runtime validation.
+- Owner operational review, recorded 2026-10-27: approved the proposal at
   design level, including its initial policy values, and highlighted backup
   completion/reader availability and transaction uncertainty as conformance
-  obligations. Authorized documentation recording only. Implementation,
+  obligations. The approval authorized documentation only. Implementation,
   executable-validation and publication status did not advance.
-- Subsequent migration review, recorded 2026-10-27: the owner independently reviewed
-  the uploaded [migration policy](sqlite-migration-proposal.md) and approved its
+- Subsequent migration review, recorded 2026-10-27: the owner reviewed
+  the [migration policy](sqlite-migration-proposal.md) and approved its
   design, with metadata approved in principle, independent per-transition review
   and retained implementation conditions. This does not expand the original
   operational approval or establish executable correctness, implementation

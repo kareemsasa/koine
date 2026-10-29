@@ -2,11 +2,11 @@
 
 **Status: Approved migration design; bootstrap/refusal checks executed, released upgrades unimplemented.**
 Originally prepared 2026-10-27 as a documentation-only engineering proposal.
-Owner approval is recorded 2026-10-27 following independent review of the uploaded
-`sqlite-migration-proposal.md` against the approved physical schema, operational
-policy and relevant SQLite documentation. The owner found no blocking design
-contradiction. This review does not establish independent inspection of local Git
-state or any executable result; no repository baseline was supplied for the review.
+Owner approval is recorded 2026-10-27 following review of the proposal against the
+approved physical schema, operational policy and relevant SQLite documentation.
+The owner found no blocking design contradiction. No repository baseline was
+supplied for the review; the approval establishes neither verification against a
+repository revision nor an executable result.
 
 The policy originated as engineering recommendations. Owner approval establishes
 the design obligations below without changing that provenance. Migration metadata
@@ -14,7 +14,7 @@ was approved in principle. Initial DDL, application ID and bootstrap artifact di
 are now implemented under the later [offline milestone](executable-foundation.md).
 Released upgrades and per-transition review remain separate. No
 migrations, SQL scripts, application code, databases, or executable tests are
-supplied or authorized by this approval or its documentation record.
+supplied or authorized by this approval.
 
 The [logical mapping](persistence-mapping.md),
 [physical design](sqlite-schema-proposal.md), and
@@ -55,7 +55,7 @@ redesign or authorizing unrestricted schema transformation:
 
 These released-upgrade conditions remain unexecuted obligations. The separate
 offline milestone authorizes bootstrap and synthetic tests, not actual released
-transitions or publication.
+transitions or publication (publication was separately authorized on 2026-10-25).
 
 ## Approved policy and retained alternatives
 
@@ -377,7 +377,7 @@ clearance.
 - **Initial proposal, 2026-10-27:** Prepared as engineering recommendations at the
   owner's request, with migration strategy still unapproved. Documentation checks
   did not establish executable behavior or implementation authorization.
-- **Independent owner review, recorded 2026-10-27:** The owner reviewed the uploaded
+- **Owner review, recorded 2026-10-27:** The owner reviewed the
   proposal against the approved physical schema, operational policy and relevant
   SQLite documentation, found no blocking contradiction, and approved the migration
   policy at design level. Migration metadata was approved in principle. The owner
@@ -385,6 +385,6 @@ clearance.
   the validated safety copy, and blocked operation after failed post-commit reopen
   or semantic validation, without automatic restoration. The open decisions above,
   unexecuted validation obligations and 24 unchanged synthetic acceptance
-  specifications remain. Only documentation recording was authorized; no local
-  Git inspection, executable result, implementation authorization or publication
-  clearance is inferred.
+  specifications remain. The approval authorized documentation only; no
+  verification against a repository revision, executable result, implementation
+  authorization or publication clearance is inferred.

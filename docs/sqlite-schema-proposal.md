@@ -1,11 +1,12 @@
 # Physical SQLite schema design baseline
 
 **Status: Approved design; selected offline implementation checks recorded separately.**
-Originally prepared 2026-10-26. The owner independently reviewed the uploaded
-revision at reported baseline `e728114` and approved its physical catalog,
-canonical digest protocols, and specified guard/seal behavior. This is a separate
-approval from [A–D](architecture-options.md) and the
-[logical mapping](persistence-mapping.md).
+Originally prepared 2026-10-26. The owner reviewed the revision identified as
+baseline `e728114` and approved its physical catalog,
+canonical digest protocols, and specified guard/seal behavior. Identifying that
+baseline does not establish that the reviewed content was verified against that
+Git revision. This is a separate approval from [A–D](architecture-options.md)
+and the [logical mapping](persistence-mapping.md).
 This document specifies implementation obligations; it is not executable SQL or
 an SQL migration. The later owner-authorized [offline foundation](executable-foundation.md)
 now supplies bootstrap DDL, disposable databases and selected executable checks.
@@ -14,10 +15,11 @@ supplies implementation authority. Full conformance remains incomplete.
 
 ## Physical review disposition
 
-The earlier review of `d951846` required revisions. The owner subsequently inspected
-the uploaded revision's relational catalog, coverage model, canonical protocols,
-decision sealing, and recovery rules, and approved the design baseline. The owner
-did not inspect local Git state or execute SQL. The engineering origin of the
+The earlier review of `d951846` required revisions. The owner subsequently reviewed
+the revision's relational catalog, coverage model, canonical protocols,
+decision sealing, and recovery rules, and approved the design baseline. The
+review included no verification against the Git repository and no SQL execution;
+design approval is not executable validation. The engineering origin of the
 specification is unchanged by this approval; the review history is retained below.
 
 | Choice | Owner disposition | Remaining boundary |
@@ -65,7 +67,8 @@ open decisions. Distribution compatibility remains unverified.
 No authorization to create migrations, Rust code, databases, or run live launcher
 integrations or publish follows from
 the design approval alone. The later offline milestone separately authorizes local
-implementation and synthetic tests; live integrations/publication remain excluded.
+implementation and synthetic tests; live integrations/publication remain excluded
+from that milestone (publication was separately authorized on 2026-10-25).
 
 ## Design choices, retained alternatives, and operational decisions
 
@@ -863,7 +866,7 @@ copies without pruning or relocation. Migration's detailed open decisions,
 archival administration, pruning/cold relocation, optional-cache cleanup, permanent
 erasure, repair/restore tooling, backup scheduling/destinations/finalization policy
 and packaging/runtime supply remain open. Distribution compatibility is still unverified.
-No current ownership, integration success or publication clearance follows from
+No current game ownership, integration success or publication clearance follows from
 documenting the schema. The later milestone separately authorized the offline
 implementation; its measured test results and limitations are recorded in the
 executable report, independently of this design approval.
@@ -871,26 +874,29 @@ executable report, independently of this design approval.
 ## Revision record
 
 - Initial catalog: local commit `d951846`, Proposed; no executable validation.
-- Owner physical review: based on the uploaded proposal, accepted the limited
-  encoding/algorithm/baseline choices above and deferred sealing in principle;
+- Owner physical review: accepted the limited encoding/algorithm/baseline
+  choices above and deferred sealing in principle;
   withheld complete catalog approval for three modeling gaps and canonical digest
   details. This revision proposes the corrections. It records no SQL/runtime
   success, distribution compatibility, implementation authorization, or publication.
-- Independent review of the uploaded revised proposal at reported baseline
-  `e728114`: the owner found all four corrections satisfied and approved the
-  physical catalog, canonical protocols and specified guard/seal behavior at the
-  design level. The owner did not inspect local Git state or execute SQL. Required
-  reproducible serialization vectors and guard/conformance validation remain
-  unperformed. Operational decisions and implementation/publication authorization
+- Owner review of the revised proposal identified as baseline `e728114`: the
+  owner found all four corrections satisfied and approved the physical catalog,
+  canonical protocols and specified guard/seal behavior at the design level,
+  without verification against that Git revision or executable validation.
+  Required reproducible serialization vectors and guard/conformance validation
+  remain unperformed. Operational decisions and
+  implementation/publication authorization
   were not advanced. The preceding Proposed/withheld entries describe historical
   checkpoints, not the current design status.
-- Subsequent operational review at reported baseline `5f578cc`: the owner approved
-  the uploaded [operational policy](sqlite-operational-policy.md) at design level,
-  including initial values and retained conformance obligations. This separately
+- Subsequent operational review of the proposal identified as baseline `5f578cc`
+  (an identification, not verification against that revision): the owner
+  approved the [operational policy](sqlite-operational-policy.md) at
+  design level, including initial values and retained conformance obligations.
+  This separately
   resolves the operational decisions left open at the physical-review checkpoint;
   no physical catalog, executable-validation or publication status changed.
-- Subsequent migration review, recorded 2026-10-27: the owner independently reviewed
-  the uploaded [migration policy](sqlite-migration-proposal.md) against this design,
+- Subsequent migration review, recorded 2026-10-27: the owner reviewed
+  the [migration policy](sqlite-migration-proposal.md) against this design,
   the operational policy and SQLite documentation, and approved it at design level.
   Identity/history metadata is approved in principle; exact definitions, artifact
   digest rules and per-transition mechanisms still require review. Original catalog

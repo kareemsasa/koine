@@ -9,7 +9,7 @@ limitation statements below where they record further work.
 
 The owner authorized one engineering milestone: Rust application/test code,
 disposable SQLite databases, synthetic execution, routine reversible implementation
-choices, documentation and local commits. That instruction supersedes earlier
+choices, documentation and local commits. That authorization supersedes earlier
 next-action restrictions to documentation only. It does not authorize real launcher
 execution, personal-library access, authentication, destructive pruning/erasure,
 restoration, released-schema upgrade transitions or public publication.
@@ -162,11 +162,9 @@ git diff --check
 
 The generated artifacts were compared before/after regeneration. Cargo.lock is
 committed. Verification used stable rustc 1.99.1, Cargo 1.99.1 and system-linked
-SQLite 3.54.0 on this Linux environment. Rust was initially absent; the official
-toolchain and dependency cache were installed in temporary storage outside the
-repository without changing system configuration. For this session, a temporary
-isolated toolchain environment selects them; normal
-contributors need their own Rust installation and SQLite development library.
+SQLite 3.54.0 in one Linux validation environment; results are not claimed for
+other Linux systems. Contributors need their own Rust installation and SQLite
+development library.
 The declared Rust minimum is 1.89; that older toolchain was not separately tested.
 
 The CLI demo and a subsequent independent inspect invocation both reported one
@@ -214,7 +212,7 @@ blanket certification of the approved persistence designs:
 No acceptance specification was weakened or rewritten. The design approval
 histories remain historical; these local executable results neither retroactively
 validate an earlier checkpoint nor establish live integration or owner acceptance
-of the implementation. No task-time or estimate values are invented.
+of the implementation.
 
 ## Local commits and next milestone
 
