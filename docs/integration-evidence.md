@@ -20,7 +20,7 @@ semantics, or specific current URI behavior depend on that failed lookup.
 
 ## Owner-supplied historical evidence
 
-Prior-art findings from GameIndex cover Steam Web API ownership, local
+Owner-supplied prior-art findings about GameIndex cover Steam Web API ownership, local
 library/manifests, incomplete installations, and independent process monitoring.
 These motivate the contracts; they are not independently reproduced integration
 results. No GameIndex code or schema is adopted.
