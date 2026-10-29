@@ -2,10 +2,12 @@
 
 **Status: Approved design; selected offline operational checks now recorded.**
 Recorded 2026-10-27 from the owner's review of the operational proposal identified
-as repository baseline `5f578cc`. The owner reviewed the proposal against
-Koiné's approved persistence contracts and current SQLite documentation, found no
-blocking contradiction, and explicitly approved the operational design. Design
-approval does not establish successful execution.
+as repository baseline `5f578cc`. The owner reported reviewing the proposal
+against Koiné's approved persistence contracts and current SQLite documentation
+and finding no blocking contradiction, and explicitly approved the operational
+design. Identifying that baseline does not establish that the reviewed proposal
+was verified against that Git revision, and design approval does not establish
+successful execution.
 
 The policy originated as an engineering proposal; owner approval establishes its
 design obligations without changing that provenance. It supplements
@@ -232,7 +234,7 @@ authorize restore tooling, ordinary evidence mutation or implementation.
 
 ## Primary references and evidence limits
 
-The owner's review covered current SQLite documentation. The references support
+The owner reported reviewing current SQLite documentation. The references support
 the narrow engine behaviors below, not executable correctness of Koiné:
 
 - [Isolation](https://www.sqlite.org/isolation.html): WAL reader/writer concurrency
@@ -259,8 +261,9 @@ the narrow engine behaviors below, not executable correctness of Koiné:
 
 ## Decision history
 
-- Proposal identified as baseline `5f578cc`: operational alternatives and a
-  recommendation were presented without repository changes or runtime validation.
+- Proposal identified as baseline `5f578cc` (an identification, not verification
+  against that revision): operational alternatives and a recommendation were
+  presented without repository changes or runtime validation.
 - Owner operational review, recorded 2026-10-27: approved the proposal at
   design level, including its initial policy values, and highlighted backup
   completion/reader availability and transaction uncertainty as conformance

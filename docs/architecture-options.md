@@ -37,7 +37,8 @@ limitations and further decisions do not expand A–D's original scope.
 
 The owner approved A–D based on the presented comparison and the established
 contracts. This records engineering approval of the four choices and their
-recorded boundaries, not blanket approval of every detail in this file. Module
+recorded boundaries, not independent review of this file, verification against a
+repository revision, or blanket approval of every detail in this file. Module
 layouts, the connection/write coordination model, attempt-persistence sequencing,
 and other detailed proposals
 below remain engineering proposals wherever not expressly covered by A–D or the
@@ -310,7 +311,8 @@ tests or an honest inconclusive process state in the authorized offline foundati
 but they do limit claims about completed integrations and the persistent desktop
 slice.
 
-Publication still requires separate authorization. Architecture approval and a
+Publication required authorization separate from these approvals; it was
+separately owner-authorized on 2026-10-25. Architecture approval and a
 local documentation commit do not establish implementation or test completion.
 
 ## Decision history
@@ -320,7 +322,8 @@ local documentation commit do not establish implementation or test completion.
   at that checkpoint.
 - **Subsequent owner engineering review:** The owner approved A–D as presented in
   the comparison, with the boundaries recorded above; the approval covers the four
-  choices, not every detail in this file. Only a documentation record of the
+  choices, not independent inspection of this file or every detail in it. Only a
+  documentation record of the
   approval followed. No implementation, executed-test, or publication status was
   advanced by that review.
 - **Subsequent operational review, recorded 2026-10-27:** The owner approved the

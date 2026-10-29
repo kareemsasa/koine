@@ -25,7 +25,8 @@ library/manifests, incomplete installations, and independent process monitoring.
 These motivate the contracts; they are not independently reproduced integration
 results. No GameIndex code or schema is adopted.
 
-Prior art from OpenBoxGL records the SPRAWL event: App ID `1549690`, imported
+Owner-supplied historical evidence associated with OpenBoxGL describes the
+SPRAWL event: App ID `1549690`, imported
 template `steam -applaunch {app_id}`, exit status `127`, no remaining game process
 found in the reported inspection, and inconsistent frontend state. That evidence
 does not identify the cause of the command failure or prove a particular process

@@ -3,9 +3,10 @@
 **Status: Approved design; selected offline implementation checks recorded separately.**
 Originally prepared 2026-10-26. The owner reviewed the revision identified as
 baseline `e728114` and approved its physical catalog,
-canonical digest protocols, and specified guard/seal behavior. This is a separate
-approval from [A–D](architecture-options.md) and the
-[logical mapping](persistence-mapping.md).
+canonical digest protocols, and specified guard/seal behavior. Identifying that
+baseline does not establish that the reviewed content was verified against that
+Git revision. This is a separate approval from [A–D](architecture-options.md)
+and the [logical mapping](persistence-mapping.md).
 This document specifies implementation obligations; it is not executable SQL or
 an SQL migration. The later owner-authorized [offline foundation](executable-foundation.md)
 now supplies bootstrap DDL, disposable databases and selected executable checks.
@@ -16,8 +17,9 @@ supplies implementation authority. Full conformance remains incomplete.
 
 The earlier review of `d951846` required revisions. The owner subsequently reviewed
 the revision's relational catalog, coverage model, canonical protocols,
-decision sealing, and recovery rules, and approved the design baseline. Design
-approval is not executable validation. The engineering origin of the
+decision sealing, and recovery rules, and approved the design baseline. The
+review included no verification against the Git repository and no SQL execution;
+design approval is not executable validation. The engineering origin of the
 specification is unchanged by this approval; the review history is retained below.
 
 | Choice | Owner disposition | Remaining boundary |
@@ -880,13 +882,15 @@ executable report, independently of this design approval.
 - Owner review of the revised proposal identified as baseline `e728114`: the
   owner found all four corrections satisfied and approved the physical catalog,
   canonical protocols and specified guard/seal behavior at the design level,
-  without executable validation. Required reproducible serialization vectors and
-  guard/conformance validation remain unperformed. Operational decisions and
+  without verification against that Git revision or executable validation.
+  Required reproducible serialization vectors and guard/conformance validation
+  remain unperformed. Operational decisions and
   implementation/publication authorization
   were not advanced. The preceding Proposed/withheld entries describe historical
   checkpoints, not the current design status.
-- Subsequent operational review of the proposal identified as baseline `5f578cc`:
-  the owner approved the [operational policy](sqlite-operational-policy.md) at
+- Subsequent operational review of the proposal identified as baseline `5f578cc`
+  (an identification, not verification against that revision): the owner
+  approved the [operational policy](sqlite-operational-policy.md) at
   design level, including initial values and retained conformance obligations.
   This separately
   resolves the operational decisions left open at the physical-review checkpoint;

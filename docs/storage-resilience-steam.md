@@ -112,8 +112,9 @@ physical power-loss behavior or storage-device guarantees.
 
 ### Quality and database checks
 
-The following commands completed successfully on Linux with stable Rust/Cargo
-1.99.1 and system-linked SQLite 3.54.0, as in milestone 1. Dependencies came from
+The following commands completed successfully with stable Rust/Cargo 1.99.1 and
+system-linked SQLite 3.54.0 in the same Linux validation environment as
+milestone 1. Dependencies came from
 a local cache; tests ran offline.
 
 ```sh

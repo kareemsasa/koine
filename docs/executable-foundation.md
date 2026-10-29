@@ -162,7 +162,8 @@ git diff --check
 
 The generated artifacts were compared before/after regeneration. Cargo.lock is
 committed. Verification used stable rustc 1.99.1, Cargo 1.99.1 and system-linked
-SQLite 3.54.0 on Linux. Contributors need their own Rust installation and SQLite
+SQLite 3.54.0 in one Linux validation environment; results are not claimed for
+other Linux systems. Contributors need their own Rust installation and SQLite
 development library.
 The declared Rust minimum is 1.89; that older toolchain was not separately tested.
 

@@ -269,8 +269,9 @@ recovers observations without source files. Neither test simulates hardware powe
 loss. Existing WAL/FULL, SQLite guards, integrity/FK, canonical and backup fault
 checks also remain passing.
 
-The following exact commands completed successfully on Linux, with stable
-Rust/Cargo 1.99.1 and system-linked SQLite 3.54.0:
+The following exact commands completed successfully in the same Linux
+validation environment as the earlier milestones, with stable Rust/Cargo 1.99.1
+and system-linked SQLite 3.54.0:
 
 ```sh
 cargo fmt --all -- --check
@@ -306,8 +307,9 @@ storage outside the repository.
 
 During development, tests exposed mismatched synthetic authority provenance and a
 failed aggregate lacking failed coverage. Both were corrected in the new v2 path;
-the final suites pass. One artifact-check script initially referenced a
-nonexistent directory; the corrected artifact list was then used successfully.
+the final suites pass. An initial validation shell lacked Cargo on PATH, and one
+artifact-check script initially referenced a nonexistent directory; validation
+then succeeded with Cargo available and the corrected artifact list.
 No failed check is being presented as passing. No synthetic result is represented
 as a real Steam observation.
 
@@ -372,8 +374,9 @@ No commit was pushed.
 
 This is local implementation, local validation and local commit. No publication,
 deployment, real-library validation or owner acceptance is inferred. Historical
-milestone results and approval records remain preserved. The only planned
-verification still blocked is exact-root real-library verification.
+milestone results and approval records remain preserved. Exact-root real-library
+verification remains blocked pending separate exact-root approval; other
+verification recorded above as unperformed also remains open.
 
 *Update 2026-10-28:* the Milestone 3 commits `3199aab`, `35f2511` and `0f91bc6`
 were later pushed and, with review fixes `f66af51` and `46460c5`, merged through

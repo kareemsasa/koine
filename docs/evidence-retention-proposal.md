@@ -4,7 +4,8 @@
 Originally prepared 2026-10-27 as a documentation-only engineering proposal.
 Owner design-level approval of the initial retention and copy-only archival
 policy, its nonblocking limitations and remaining open decisions is recorded
-2026-10-27. Design approval is not an executable result. Approval does not modify
+2026-10-27. Design approval establishes neither verification against a repository
+revision nor an executable result. Approval does not modify
 the approved catalog or authorize implementation, database operations, deletion,
 migration, executable tests, commit or publication (publication was separately
 authorized on 2026-10-25).

@@ -2,7 +2,8 @@
 
 **Status: Approved logical behavior; physical design separately approved.** Recorded
 2026-10-26 from the owner's approval of the clarified mapping draft. The approval
-covers that mapping, not every detail of this record.
+covers that mapping, not independent inspection of this record or every detail
+in it.
 [Architecture A–D](architecture-options.md) and the existing
 [domain](domain-model.md), [discovery](discovery-contract.md), and
 [launch](launch-contract.md) contracts remain authoritative.
@@ -123,8 +124,9 @@ and a recorded decision.
 The owner reviewed the revised
 [physical SQLite design baseline](sqlite-schema-proposal.md) and approved its
 catalog, canonical digest protocols and specified guard/seal behavior at the design
-level. This is a separate approval from the logical mapping recorded above;
-design approval does not establish executable correctness.
+level. This is a separate approval from the logical mapping recorded above; it
+establishes neither verification against the Git repository nor executable
+correctness.
 
 The implementation must verify canonical serialization using reproducible vectors
 and enforce complete proofs, valid references, closure and coverage. Selected

@@ -74,6 +74,8 @@ Publication was owner-authorized on 2026-10-25.
 
 A–D, logical mapping, physical design, operational, migration and initial retention
 approvals retain their recorded boundaries; test execution does not expand them.
+Design approval is distinct from verification against a repository revision and
+from executable validation; none of these approvals establishes either.
 
 ## Approved architecture and open decisions
 
@@ -83,7 +85,8 @@ standard workers without Tokio initially, an application-local core with built-i
 adapters, bounded workers and serialized state mutations, GTK4/libadwaita through
 Rust bindings, and SQLite with relational separation of records and evidence.
 It retains the alternatives and engineering rationale. The approval covers the
-four choices and their recorded boundaries, not every detail in that file.
+four choices and their recorded boundaries, not every detail in that file; it was
+based on the presented comparison, not independent inspection of that file.
 
 The owner separately approved the [clarified logical mapping](persistence-mapping.md).
 All four review conditions are satisfied as behavioral
@@ -91,8 +94,8 @@ obligations. Heroic's reporter-local identity profile remains provisional; manag
 authority is distinct from storefront identity authority. The
 [physical SQLite design baseline](sqlite-schema-proposal.md) now has owner
 approval of its catalog, canonical digest protocols and specified guard/seal
-behavior. This closes the design-review gate; design approval is not executable
-validation.
+behavior. The review included no verification against the Git repository and no
+SQL execution. This closes the design-review gate, not executable validation.
 
 The owner subsequently accepted lowercase UUID TEXT, UTC integer microseconds,
 path BLOBs, SHA-256 as content-digest algorithm, and STRICT/3.37.0 as schema baseline

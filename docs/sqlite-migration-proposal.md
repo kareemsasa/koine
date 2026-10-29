@@ -4,8 +4,9 @@
 Originally prepared 2026-10-27 as a documentation-only engineering proposal.
 Owner approval is recorded 2026-10-27 following review of the proposal against the
 approved physical schema, operational policy and relevant SQLite documentation.
-The owner found no blocking design contradiction. Design approval is not an
-executable result, and the approval does not identify a repository commit.
+The owner found no blocking design contradiction. No repository baseline was
+supplied for the review; the approval establishes neither verification against a
+repository revision nor an executable result.
 
 The policy originated as engineering recommendations. Owner approval establishes
 the design obligations below without changing that provenance. Migration metadata
