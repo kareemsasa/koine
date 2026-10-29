@@ -119,9 +119,9 @@ transaction failures must preserve commit uncertainty and inspect immutable
 identities before database retry, without replaying launcher submissions.
 Selected offline operational checks, including queue/cancellation, real SQLite
 errors, backup faults and WAL pressure now pass; the current report identifies
-untested fault and stress cases. The owner reviewed the
-proposal against persistence contracts and SQLite documentation; design approval
-does not establish executable behavior.
+untested fault and stress cases. The owner reported reviewing the proposal against
+persistence contracts and SQLite documentation; design approval establishes
+neither verification against a repository revision nor executable behavior.
 
 Repair/restore tooling, archival administration, pruning/cold relocation,
 backup scheduling/destination selection, packaging/runtime supply, ownership
@@ -143,8 +143,9 @@ executable correctness, implementation authorization or publication clearance.
 The [migration approval record](sqlite-migration-proposal.md) establishes design
 approval for exact compatibility checks, a whole-path transaction, mandatory
 validated safety copy, interrupted recovery, evidence preservation and validation
-before ordinary operations resume. Design approval is not an executable result.
-Metadata is approved
+before ordinary operations resume. The owner reviewed the proposal; design
+approval establishes neither verification against a repository revision nor an
+executable result. Metadata is approved
 in principle. Each actual migration still needs independent review, including
 guarded-table mechanisms and preservation proofs. Source content must still match
 the validated safety copy before transformation; failed post-commit reopen/semantic

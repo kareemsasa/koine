@@ -386,5 +386,5 @@ clearance.
   or semantic validation, without automatic restoration. The open decisions above,
   unexecuted validation obligations and 24 unchanged synthetic acceptance
   specifications remain. The approval authorized documentation only; no
-  executable result, implementation authorization or publication clearance is
-  inferred.
+  verification against a repository revision, executable result, implementation
+  authorization or publication clearance is inferred.

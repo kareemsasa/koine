@@ -322,9 +322,9 @@ local documentation commit do not establish implementation or test completion.
   at that checkpoint.
 - **Subsequent owner engineering review:** The owner approved A–D as presented in
   the comparison, with the boundaries recorded above; the approval covers the four
-  choices, not independent inspection of this file or every detail in it. Only a
-  documentation record of the
-  approval followed. No implementation, executed-test, or publication status was
+  choices, not independent inspection of this file or every detail in it. The
+  owner requested only a documentation record of the approval. No implementation,
+  executed-test, or publication status was
   advanced by that review.
 - **Subsequent operational review, recorded 2026-10-27:** The owner approved the
   [SQLite operational policy](sqlite-operational-policy.md) at design

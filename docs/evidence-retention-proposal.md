@@ -410,7 +410,8 @@ publication clearance.
   authorize neither source pruning nor relocation. Manual visibility semantics
   remain reversible and separate from erasure. The nonblocking limitations and
   remaining decisions are identified above. The policy retains its engineering
-  provenance; design approval is not an executable result. The approval
+  provenance; design approval establishes neither verification against a
+  repository revision nor an executable result. The approval
   authorized documentation only. No implementation, database operation,
   deletion, migration, executable test or publication is authorized; the existing
   24 acceptance specifications remain unchanged and unexecuted, and executable
