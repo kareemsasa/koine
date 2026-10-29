@@ -64,14 +64,6 @@ pub fn scan(
     {
         let configured = settings.lock().map_err(|_| "settings lock poisoned")?;
         if configured.owner() != plan.fixture
-            || !configured.roots().iter().any(|r| {
-                r.id() == root.id()
-                    && r.scope() == root.scope()
-                    && r.path() == root.path()
-                    && r.layout() == root.layout()
-                    && r.synthetic() == root.synthetic()
-                    && r.authorized() == root.authorized()
-            })
             || plan.profile
                 != if root.synthetic() {
                     Profile::SyntheticV2
@@ -80,6 +72,19 @@ pub fn scan(
                 }
         {
             return Err("request is not the authorized configuration snapshot".into());
+        }
+        // The root was removed, reconfigured or had its authorization changed after
+        // admission. Close only this attempt, before any source access, instead of
+        // failing the whole request.
+        if !configured.roots().iter().any(|r| {
+            r.id() == root.id()
+                && r.scope() == root.scope()
+                && r.path() == root.path()
+                && r.layout() == root.layout()
+                && r.synthetic() == root.synthetic()
+                && r.authorized() == root.authorized()
+        }) {
+            return Ok(gap(plan, "configuration-changed-after-admission".into()));
         }
     }
     if cancel.load(Ordering::Relaxed) {

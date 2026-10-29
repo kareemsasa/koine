@@ -165,6 +165,12 @@ report and requires recovery. Earlier useful root results remain committed; an
 aggregate with useful work is partial. Scheduling and delivery order never decide
 claim ordering or renew source freshness.
 
+*Update 2026-10-29:* a configuration change after admission (root removed,
+reconfigured or its authorization changed) is not a persistence failure. Before
+any source access, only the affected attempt closes inconclusively with the
+diagnostic `configuration-changed-after-admission` through the journaled report
+path; other roots in the same request still run and later requests are admitted.
+
 Cancellation is cooperative between bounded operations, roots and manifests.
 Cancellation before scanning closes all original units inconclusively. After a
 valid observation, that observation survives in a partial result. Shutdown cancels
