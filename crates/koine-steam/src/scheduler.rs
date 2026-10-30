@@ -86,6 +86,8 @@ struct Queue {
 struct Shared {
     queue: Mutex<Queue>,
     wake: Condvar,
+    #[cfg(test)]
+    stage: Mutex<Option<tests::StageHook>>,
 }
 pub struct Scheduler {
     shared: Arc<Shared>,
@@ -140,6 +142,8 @@ impl Scheduler {
                 blocked: false,
             }),
             wake: Condvar::new(),
+            #[cfg(test)]
+            stage: Mutex::new(None),
         });
         let (work_shared, work_store, work_settings, work_journal) = (
             shared.clone(),
@@ -352,7 +356,7 @@ fn work(
             Err("persistence blocked; recover journal before another refresh".into())
         } else {
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                execute(&store, &settings, &journal, &job, &*observer)
+                execute(&shared, &store, &settings, &journal, &job, &*observer)
             }))
             .unwrap_or_else(|_| {
                 Err(
@@ -381,6 +385,7 @@ fn work(
     }
 }
 fn execute(
+    #[cfg_attr(not(test), allow(unused_variables))] shared: &Shared,
     store: &Store,
     settings: &Mutex<Configuration>,
     journal: &Journal,
@@ -419,9 +424,22 @@ fn execute(
                 observer(&job.ticket, count);
             },
         )?;
-        // Acknowledgement follows durable journal finalization. SQLite replay is
-        // idempotent even if the previous commit succeeded but its reply was lost.
-        journal.save(&report)?;
+        #[cfg(test)]
+        tests::reached(shared, tests::Stage::Scanned, settings);
+        // The journal write is the acceptance boundary. Holding the settings lock
+        // from the final configuration check through that write orders every
+        // removal or reconfiguration either before acceptance, discarding what was
+        // read, or after it, leaving the accepted report valid.
+        let report = {
+            let configured = settings.lock().map_err(|_| "settings lock poisoned")?;
+            let report = controlled::acceptable(&configured, &attempt.root, &attempt.plan, report);
+            // Acknowledgement follows durable journal finalization. SQLite replay is
+            // idempotent even if the previous commit succeeded but its reply was lost.
+            journal.save(&report)?;
+            #[cfg(test)]
+            tests::reached(shared, tests::Stage::Accepted, settings);
+            report
+        };
         integration::apply(store, &report)?;
         journal.remove(&report.plan.delivery)?;
         job.ticket.update(|p| {
@@ -453,7 +471,10 @@ fn execute(
 mod tests {
     use super::*;
     use crate::test_support::Lab;
-    use std::{sync::mpsc, time::Duration};
+    use std::{
+        sync::{atomic::AtomicUsize, mpsc},
+        time::Duration,
+    };
     type Observer = Arc<dyn Fn(&Ticket, usize) + Send + Sync>;
     fn gated() -> (Observer, mpsc::Receiver<()>, mpsc::Sender<()>) {
         let (reached_tx, reached_rx) = mpsc::sync_channel(1);
@@ -906,6 +927,360 @@ mod tests {
             s.rows("collection_closures")
                 .all(|c| c.is("outcome", "inconclusive"))
         );
+    }
+    /// Test-only pause points: after an attempt's scan returns, before the final
+    /// configuration check; and after its journal write, with the settings lock held.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub(super) enum Stage {
+        Scanned,
+        Accepted,
+    }
+    pub(super) type StageHook = Arc<dyn Fn(Stage, &Mutex<Configuration>) + Send + Sync>;
+    pub(super) fn reached(shared: &Shared, stage: Stage, settings: &Mutex<Configuration>) {
+        let hook = shared.stage.lock().unwrap().clone();
+        if let Some(hook) = hook {
+            hook(stage, settings);
+        }
+    }
+    const DURING: &str = "configuration-changed-during-discovery";
+    /// Counts every observer call, so a test can show no manifest was read after a
+    /// revocation.
+    fn counted(inner: Observer) -> (Observer, Arc<AtomicUsize>) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let seen = calls.clone();
+        let observer = Arc::new(move |t: &Ticket, count| {
+            seen.fetch_add(1, Ordering::SeqCst);
+            inner(t, count);
+        });
+        (observer, calls)
+    }
+    /// A third readable manifest, so a revoked attempt has manifests left to read.
+    fn third_manifest(path: &Path) {
+        std::fs::write(
+            path.join("steamapps/appmanifest_43.acf"),
+            "\"AppState\" {\"appid\" \"43\" \"installdir\" \"Synthetic 43\" \"name\" \"Synthetic 43\" \"StateFlags\" \"4\"}",
+        )
+        .unwrap();
+    }
+    /// Whether an unapplied report for this collection remains in the journal.
+    fn journaled(lab: &Lab, delivery: &str) -> bool {
+        let mut dir = std::fs::canonicalize(&lab.db).unwrap().into_os_string();
+        dir.push(".steam-journal");
+        PathBuf::from(dir).join(format!("{delivery}.koin")).exists()
+    }
+    /// A single-root attempt that lost its configuration after reading `read`
+    /// manifests: nothing it read is committed and it closes inconclusive.
+    fn assert_discarded(lab: &Lab, ticket: &Ticket, calls: &AtomicUsize, read: usize) {
+        let p = ticket.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!(p.state, State::Inconclusive);
+        assert_eq!(p.observations, 0);
+        assert_eq!(p.outcomes, ["inconclusive"]);
+        assert_eq!(p.inspected_records, read);
+        assert_eq!(calls.load(Ordering::SeqCst), read);
+        let (outcome, evidence, codes, inspected) = closed(lab, &ticket.id);
+        assert_eq!(outcome, "inconclusive");
+        assert_eq!(evidence, 0);
+        // Only the configuration code, once per durable diagnostic row.
+        assert!(
+            !codes.is_empty() && codes.iter().all(|c| c == DURING),
+            "{codes:?}"
+        );
+        assert!(!inspected);
+        assert!(!journaled(lab, &ticket.id));
+        let s = lab.store.snapshot().unwrap();
+        assert_eq!(s.rows("evidence_records").count(), 0);
+        assert_eq!(s.rows("source_entries").count(), 0);
+    }
+    #[test]
+    fn authorized_real_root_removed_mid_scan_commits_none_of_its_observations() {
+        let lab = Lab::new();
+        let r = lab.add_authorized_real("real");
+        let path = lab.root(&r).path().to_path_buf();
+        third_manifest(&path);
+        let (gate, reached, release) = gated();
+        let (observer, calls) = counted(gate);
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let t = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        lab.settings.lock().unwrap().remove(&r).unwrap();
+        release.send(()).unwrap();
+        assert_discarded(&lab, &t, &calls, 1);
+        // The scheduler is not blocked: the root configured and authorized again is
+        // admitted and read in full by a fresh request.
+        {
+            let mut settings = lab.settings.lock().unwrap();
+            settings.set(&r, &path, "native", false).unwrap();
+            settings.authorize(&r, &path).unwrap();
+        }
+        let next = scheduler.refresh(id(), 11, &[r]).unwrap();
+        release.send(()).unwrap();
+        let p = next.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.state, p.observations), (State::Complete, 3));
+    }
+    #[test]
+    fn real_root_reconfigured_mid_scan_commits_none_of_its_observations() {
+        let lab = Lab::new();
+        let r = lab.add_authorized_real("real");
+        let before = lab.root(&r);
+        let path = before.path().to_path_buf();
+        third_manifest(&path);
+        let (gate, reached, release) = gated_once();
+        let (observer, calls) = counted(gate);
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let t = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        // A changed field rotates the scope generation and clears the approval.
+        lab.settings
+            .lock()
+            .unwrap()
+            .set(&r, &path, "flatpak", false)
+            .unwrap();
+        let after = lab.root(&r);
+        assert_ne!(after.scope(), before.scope());
+        assert!(!after.authorized());
+        release.send(()).unwrap();
+        assert_discarded(&lab, &t, &calls, 1);
+        lab.settings.lock().unwrap().authorize(&r, &path).unwrap();
+        let p = scheduler.refresh(id(), 11, &[r]).unwrap().wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.state, p.observations), (State::Complete, 3));
+    }
+    #[test]
+    fn synthetic_root_removed_mid_scan_commits_none_of_its_observations() {
+        let lab = Lab::new();
+        let r = lab.add("synthetic");
+        third_manifest(lab.root(&r).path());
+        let (gate, reached, release) = gated_once();
+        let (observer, calls) = counted(gate);
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let t = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        lab.settings.lock().unwrap().remove(&r).unwrap();
+        release.send(()).unwrap();
+        assert_discarded(&lab, &t, &calls, 1);
+        let other = lab.add("other");
+        let p = scheduler.refresh(id(), 11, &[other]).unwrap().wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.state, p.observations), (State::Complete, 2));
+    }
+    #[test]
+    fn unrelated_root_changed_mid_scan_leaves_the_scanned_attempt_intact() {
+        let lab = Lab::new();
+        let r = lab.add_authorized_real("scanned");
+        third_manifest(lab.root(&r).path());
+        let unrelated = lab.add("unrelated");
+        let removed = lab.add("removed");
+        let unrelated_path = lab.root(&unrelated).path().to_path_buf();
+        let (gate, reached, release) = gated();
+        let (observer, calls) = counted(gate);
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let t = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        {
+            let mut settings = lab.settings.lock().unwrap();
+            settings
+                .set(&unrelated, &unrelated_path, "flatpak", true)
+                .unwrap();
+            settings.remove(&removed).unwrap();
+        }
+        release.send(()).unwrap();
+        let p = t.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.state, p.observations), (State::Complete, 3));
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        let (outcome, evidence, codes, inspected) = closed(&lab, &t.id);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 3, true)
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+        assert!(!journaled(&lab, &t.id));
+    }
+    #[test]
+    fn multi_root_request_completes_other_roots_after_one_is_revoked_mid_scan() {
+        let lab = Lab::new();
+        let a = lab.add("a");
+        let b = lab.add_authorized_real("b");
+        for r in [&a, &b] {
+            third_manifest(lab.root(r).path());
+        }
+        // Attempts follow root-id order; revoke the one read first while it is read.
+        let (first, second) = if a < b { (&a, &b) } else { (&b, &a) };
+        let (gate, reached, release) = gated_once();
+        let (observer, calls) = counted(gate);
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let t = scheduler
+            .refresh(id(), 10, &[a.clone(), b.clone()])
+            .unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        lab.settings.lock().unwrap().remove(first).unwrap();
+        release.send(()).unwrap();
+        let p = t.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!(p.state, State::Partial);
+        assert_eq!(p.observations, 3);
+        assert_eq!(p.completed_roots, 2);
+        assert_eq!(p.outcomes, ["inconclusive", "complete"]);
+        // One manifest of the revoked root, then all three of the other.
+        assert_eq!(calls.load(Ordering::SeqCst), 4);
+        let (outcome, evidence, codes, inspected) = closed(&lab, &p.attempts[0]);
+        assert_eq!((outcome.as_str(), evidence), ("inconclusive", 0));
+        // Only the configuration code, once per durable diagnostic row.
+        assert!(
+            !codes.is_empty() && codes.iter().all(|c| c == DURING),
+            "{codes:?}"
+        );
+        assert!(!inspected);
+        let (outcome, evidence, _, inspected) = closed(&lab, &p.attempts[1]);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 3, true)
+        );
+        assert!(p.attempts.iter().all(|d| !journaled(&lab, d)));
+        let p = scheduler
+            .refresh(id(), 11, std::slice::from_ref(second))
+            .unwrap()
+            .wait();
+        assert_eq!((p.state, p.observations), (State::Complete, 3));
+    }
+    #[test]
+    fn revocation_completed_before_the_final_check_discards_a_fully_read_report() {
+        let lab = Lab::new();
+        let r = lab.add_authorized_real("real");
+        let (observer, calls) = counted(Arc::new(|_: &Ticket, _| {}));
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        // Revoke after every read and in-scan check has passed, before acceptance.
+        let rid = r.clone();
+        *scheduler.shared.stage.lock().unwrap() = Some(Arc::new(move |stage, settings| {
+            if stage == Stage::Scanned {
+                settings.lock().unwrap().remove(&rid).unwrap();
+            }
+        }));
+        let t = scheduler.refresh(id(), 10, &[r]).unwrap();
+        assert_discarded(&lab, &t, &calls, 2);
+    }
+    #[test]
+    fn revocation_attempted_at_acceptance_waits_and_leaves_the_report_accepted() {
+        let lab = Lab::new();
+        let r = lab.add_authorized_real("real");
+        let scheduler =
+            Scheduler::new(lab.store.clone(), lab.settings.clone(), &lab.db, 10).unwrap();
+        let held = Arc::new(AtomicBool::new(false));
+        let revoker = Arc::new(Mutex::new(None));
+        let (rid, shared_settings, h, v) = (
+            r.clone(),
+            lab.settings.clone(),
+            held.clone(),
+            revoker.clone(),
+        );
+        *scheduler.shared.stage.lock().unwrap() = Some(Arc::new(move |stage, settings| {
+            if stage == Stage::Accepted {
+                // The journal write has happened and the final check's lock is still
+                // held, so a concurrent removal can only complete after acceptance.
+                h.store(
+                    matches!(
+                        settings.try_lock(),
+                        Err(std::sync::TryLockError::WouldBlock)
+                    ),
+                    Ordering::SeqCst,
+                );
+                let (rid, settings) = (rid.clone(), shared_settings.clone());
+                *v.lock().unwrap() = Some(thread::spawn(move || {
+                    settings.lock().unwrap().remove(&rid).unwrap()
+                }));
+            }
+        }));
+        let t = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        let p = t.wait();
+        revoker.lock().unwrap().take().unwrap().join().unwrap();
+        assert!(held.load(Ordering::SeqCst));
+        assert!(lab.settings.lock().unwrap().roots().is_empty());
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.state, p.observations), (State::Complete, 2));
+        let (outcome, evidence, codes, inspected) = closed(&lab, &t.id);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 2, true)
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+        assert!(!journaled(&lab, &t.id));
+    }
+    #[test]
+    fn report_journaled_before_revocation_is_replayed_by_recovery() {
+        let lab = Lab::new();
+        let r = lab.add_authorized_real("real");
+        let report = lab.report(&r);
+        assert_eq!(report.outcome(), "complete");
+        {
+            let journal = Journal::open(&lab.db).unwrap();
+            journal.save(&report).unwrap();
+        }
+        lab.settings.lock().unwrap().remove(&r).unwrap();
+        let delivery = report.plan.delivery.clone();
+        assert!(journaled(&lab, &delivery));
+        let _scheduler =
+            Scheduler::new(lab.store.clone(), lab.settings.clone(), &lab.db, 12).unwrap();
+        let (outcome, evidence, codes, inspected) = closed(&lab, &delivery);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 2, true)
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+        assert!(!journaled(&lab, &delivery));
     }
 }
 

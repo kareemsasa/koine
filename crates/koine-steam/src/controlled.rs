@@ -48,6 +48,27 @@ fn configured(settings: &Mutex<Configuration>, root: &Root) -> Result<bool> {
     let configured = settings.lock().map_err(|_| "settings lock poisoned")?;
     Ok(still_configured(&configured, root))
 }
+/// The report accepted for an attempt, decided with the settings lock held until
+/// its journal write. An attempt whose root is no longer configured as admitted
+/// discards everything it read and closes with the admitted plan only. Reports
+/// that are already configuration refusals are kept as they are.
+pub(crate) fn acceptable(
+    configured: &Configuration,
+    root: &Root,
+    admitted: &Plan,
+    report: Report,
+) -> Report {
+    if still_configured(configured, root)
+        || report
+            .index_issues
+            .iter()
+            .any(|c| c == CHANGED_AFTER_ADMISSION || c == CHANGED_DURING_DISCOVERY)
+    {
+        report
+    } else {
+        gap(admitted.clone(), CHANGED_DURING_DISCOVERY.into())
+    }
+}
 fn gap(plan: Plan, code: String) -> Report {
     Report {
         roots: plan
