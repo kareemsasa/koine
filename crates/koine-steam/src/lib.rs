@@ -259,6 +259,21 @@ impl FixtureFs {
         cancel: Arc<AtomicBool>,
         progress: &mut dyn FnMut(usize),
     ) -> Result<Report> {
+        self.scan_while(plan, cancel, progress, &mut || Ok(true))?
+            .ok_or_else(|| "unconditional scan stopped".into())
+    }
+    /// `scan_progress` that calls `current` before each `steamapps` listing, each
+    /// manifest read and each closing listing re-read, and stops without a report
+    /// (`None`) as soon as it returns false. Controlled scans pass their
+    /// configuration check; the closing index re-read here applies only to
+    /// fixture-v1 plans, which never stop.
+    pub(crate) fn scan_while(
+        &self,
+        plan: Plan,
+        cancel: Arc<AtomicBool>,
+        progress: &mut dyn FnMut(usize),
+        current: &mut dyn FnMut() -> Result<bool>,
+    ) -> Result<Option<Report>> {
         if plan.fixture != self.id {
             return Err("fixture identity changed".into());
         }
@@ -293,6 +308,9 @@ impl FixtureFs {
                 continue;
             };
             let steamapps = relative.join("steamapps");
+            if !current()? {
+                return Ok(None);
+            }
             let listing = match self.list(&steamapps) {
                 Ok(list) => list,
                 Err(reason) => {
@@ -335,6 +353,9 @@ impl FixtureFs {
                     continue;
                 }
                 let locator = fixture_fs::bytes(&steamapps.join(file));
+                if !current()? {
+                    return Ok(None);
+                }
                 match self.read(&steamapps.join(file)).and_then(|b| {
                     if b.len() > remaining_bytes {
                         remaining_bytes = 0;
@@ -375,6 +396,9 @@ impl FixtureFs {
                     }),
                 }
             }
+            if !current()? {
+                return Ok(None);
+            }
             if self.list(&steamapps).ok().as_ref() != Some(&listing) {
                 report.diagnostics.push(Diagnostic {
                     code: "directory-changed".into(),
@@ -394,11 +418,11 @@ impl FixtureFs {
         {
             index_issues.push("library-index-changed".into())
         }
-        Ok(Report {
+        Ok(Some(Report {
             plan,
             roots: reports,
             index_issues,
-        })
+        }))
     }
 }
 impl Report {
