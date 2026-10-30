@@ -271,7 +271,7 @@ impl Configuration {
         let r = roots
             .iter_mut()
             .find(|r| r.scope == scope)
-            .ok_or("configuration changed during discovery")?;
+            .ok_or(crate::controlled::CHANGED_DURING_DISCOVERY)?;
         if r.binding.as_deref().is_some_and(|b| b != identity) {
             return Err("root-identity-changed-reconfigure-required".into());
         }
@@ -340,6 +340,24 @@ mod tests {
             c.bind(&b.scope, "synthetic-physical-id").unwrap_err(),
             "duplicate-physical-scope"
         );
+    }
+    #[test]
+    fn binding_a_scope_no_longer_configured_reports_change_during_discovery() {
+        let lab = crate::test_support::Lab::new();
+        let removed = lab.add("removed");
+        let reconfigured = lab.add("reconfigured");
+        let removed = lab.root(&removed);
+        let old = lab.root(&reconfigured);
+        let mut c = lab.settings.lock().unwrap();
+        c.remove(removed.id()).unwrap();
+        c.set(old.id(), old.path(), "flatpak", true).unwrap();
+        for scope in [removed.scope(), old.scope()] {
+            assert_eq!(
+                c.bind(scope, "synthetic-physical-id").unwrap_err(),
+                "configuration-changed-during-discovery"
+            );
+        }
+        assert!(c.roots().iter().all(|r| r.binding().is_none()));
     }
     #[test]
     fn corrupt_settings_and_settings_symlinks_fail_closed() {

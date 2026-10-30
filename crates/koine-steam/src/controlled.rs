@@ -26,6 +26,24 @@ pub fn plan(owner: &str, root: &Root, delivery: String, at: i64) -> Result<Plan>
         index_issues: Vec::new(),
     })
 }
+/// Diagnostic for an attempt whose root changed between admission and its start.
+pub(crate) const CHANGED_AFTER_ADMISSION: &str = "configuration-changed-after-admission";
+/// Diagnostic for an attempt whose root changed after it started and before its
+/// report was accepted into the journal.
+pub(crate) const CHANGED_DURING_DISCOVERY: &str = "configuration-changed-during-discovery";
+/// Whether `root` is still configured exactly as admitted: the same id, scope
+/// generation, path, layout, mode and authorization. Removal, reconfiguration and
+/// authorization changes all fail this check; recording a physical binding does not.
+pub(crate) fn still_configured(configured: &Configuration, root: &Root) -> bool {
+    configured.roots().iter().any(|r| {
+        r.id() == root.id()
+            && r.scope() == root.scope()
+            && r.path() == root.path()
+            && r.layout() == root.layout()
+            && r.synthetic() == root.synthetic()
+            && r.authorized() == root.authorized()
+    })
+}
 fn gap(plan: Plan, code: String) -> Report {
     Report {
         roots: plan
@@ -76,15 +94,8 @@ pub fn scan(
         // The root was removed, reconfigured or had its authorization changed after
         // admission. Close only this attempt, before any source access, instead of
         // failing the whole request.
-        if !configured.roots().iter().any(|r| {
-            r.id() == root.id()
-                && r.scope() == root.scope()
-                && r.path() == root.path()
-                && r.layout() == root.layout()
-                && r.synthetic() == root.synthetic()
-                && r.authorized() == root.authorized()
-        }) {
-            return Ok(gap(plan, "configuration-changed-after-admission".into()));
+        if !still_configured(&configured, root) {
+            return Ok(gap(plan, CHANGED_AFTER_ADMISSION.into()));
         }
     }
     if cancel.load(Ordering::Relaxed) {
