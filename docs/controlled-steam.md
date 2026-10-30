@@ -173,6 +173,26 @@ through the journaled report path; other roots in the same request still run and
 later requests are admitted. A change made after an attempt has begun reading is
 not detected by this check.
 
+*Update 2026-10-30:* a change made after an attempt has begun reading is now
+detected as well. The same check runs again before each later source access (the
+library index read, each `steamapps` listing and manifest read, the closing index
+and directory re-reads and the root reopen) and once more after scanning, with the
+settings lock held from that final check through the journal write that accepts
+the report. Every removal, reconfiguration or authorization change is therefore
+ordered either before acceptance or after it. A change ordered before acceptance
+discards everything the attempt read: it closes inconclusively with only its
+admitted units and the diagnostic `configuration-changed-during-discovery`, and
+none of its observations or inspected coverage is committed. Unlike cancellation,
+no partial result survives. This applies to synthetic and real configured roots
+alike; other roots in the same request still run and later requests are admitted.
+A change ordered after acceptance leaves the accepted report valid: it is applied,
+or replayed by recovery, unchanged. A filesystem operation already in progress
+cannot be interrupted, so after a change at most the one operation in flight
+completes, or stays blocked on an unavailable filesystem, and its result is
+discarded. The physical-binding step reports a root that is no longer configured
+with the same diagnostic. Fixture-v1 discovery has no configured roots and is
+unchanged.
+
 Cancellation is cooperative between bounded operations, roots and manifests.
 Cancellation before scanning closes all original units inconclusively. After a
 valid observation, that observation survives in a partial result. Shutdown cancels

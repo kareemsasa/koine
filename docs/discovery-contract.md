@@ -40,6 +40,16 @@ outcome is partial. An unsupported capability that establishes nothing is
 inconclusive, with the unsupported reason. Cancellation follows the same rules:
 partial if useful work survives, otherwise inconclusive, with cancellation noted.
 
+*Update 2026-10-30:* revocation is not cancellation. If the configuration or
+approval under which a source is read is withdrawn or changed before the
+collection's result is durably accepted, the collection must discard everything
+it read and close inconclusive, with the revocation noted and its original
+requested units; no observation or coverage from it is applied. Acceptance and
+revocation must be ordered deterministically: a revocation ordered after
+acceptance leaves the accepted result valid, including when it is replayed after
+an interruption. A source operation already in progress at revocation may
+complete, but its result is discarded.
+
 Completeness is relative to the original request. Do not shrink the reported
 request to the subset that happened to succeed and call the whole scan complete.
 A partial aggregate can contain a complete sub-scope, but only if the result
