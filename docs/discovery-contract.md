@@ -47,8 +47,8 @@ it read and close inconclusive, with the revocation noted and its original
 requested units; no observation or coverage from it is applied. Acceptance and
 revocation must be ordered deterministically: a revocation ordered after
 acceptance leaves the accepted result valid, including when it is replayed after
-an interruption. A source operation already in progress at revocation may
-complete, but its result is discarded.
+an interruption. A source operation whose authorization check preceded the
+revocation may still run, but its result is discarded.
 
 Completeness is relative to the original request. Do not shrink the reported
 request to the subset that happened to succeed and call the whole scan complete.

@@ -186,10 +186,10 @@ none of its observations or inspected coverage is committed. Unlike cancellation
 no partial result survives. This applies to synthetic and real configured roots
 alike; other roots in the same request still run and later requests are admitted.
 A change ordered after acceptance leaves the accepted report valid: it is applied,
-or replayed by recovery, unchanged. A filesystem operation already in progress
-cannot be interrupted, so after a change at most the one operation in flight
-completes, or stays blocked on an unavailable filesystem, and its result is
-discarded. The physical-binding step reports a root that is no longer configured
+or replayed by recovery, unchanged. Each check is made before the operations it
+guards start, and a filesystem operation in progress cannot be interrupted: an
+operation whose check preceded the change may still run, or stay blocked on an
+unavailable filesystem, and its result is discarded. The physical-binding step reports a root that is no longer configured
 with the same diagnostic. Fixture-v1 discovery has no configured roots and is
 unchanged.
 

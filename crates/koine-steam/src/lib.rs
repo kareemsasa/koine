@@ -262,10 +262,11 @@ impl FixtureFs {
         self.scan_while(plan, cancel, progress, &mut || Ok(true))?
             .ok_or_else(|| "unconditional scan stopped".into())
     }
-    /// `scan_progress` that calls `current` before each `steamapps` listing and
-    /// manifest read, and stops without a report (`None`) as soon as it returns
-    /// false. Controlled scans pass their configuration check; the closing index
-    /// re-read here applies only to fixture-v1 plans, which never stop.
+    /// `scan_progress` that calls `current` before each `steamapps` listing, each
+    /// manifest read and each closing listing re-read, and stops without a report
+    /// (`None`) as soon as it returns false. Controlled scans pass their
+    /// configuration check; the closing index re-read here applies only to
+    /// fixture-v1 plans, which never stop.
     pub(crate) fn scan_while(
         &self,
         plan: Plan,
