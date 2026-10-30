@@ -44,6 +44,10 @@ pub(crate) fn still_configured(configured: &Configuration, root: &Root) -> bool 
             && r.authorized() == root.authorized()
     })
 }
+fn configured(settings: &Mutex<Configuration>, root: &Root) -> Result<bool> {
+    let configured = settings.lock().map_err(|_| "settings lock poisoned")?;
+    Ok(still_configured(&configured, root))
+}
 fn gap(plan: Plan, code: String) -> Report {
     Report {
         roots: plan
@@ -98,6 +102,12 @@ pub fn scan(
             return Ok(gap(plan, CHANGED_AFTER_ADMISSION.into()));
         }
     }
+    // A later change discards what this attempt has read. Opening the root follows
+    // the check above; every later source access repeats it, and a failed check
+    // closes the attempt with the plan as admitted.
+    let admitted = plan.clone();
+    let revoked =
+        || -> Result<Report> { Ok(gap(admitted.clone(), CHANGED_DURING_DISCOVERY.into())) };
     if cancel.load(Ordering::Relaxed) {
         return Ok(gap(plan, "cancelled".into()));
     }
@@ -121,12 +131,14 @@ pub fn scan(
         Err(e) => return Ok(gap(plan, e)),
     };
     let identity = fs.identity()?;
-    if let Err(e) = settings
-        .lock()
-        .map_err(|_| "settings lock poisoned")?
-        .bind(root.scope(), &identity)
     {
-        return Ok(gap(plan, e));
+        let mut configured = settings.lock().map_err(|_| "settings lock poisoned")?;
+        if !still_configured(&configured, root) {
+            return revoked();
+        }
+        if let Err(e) = configured.bind(root.scope(), &identity) {
+            return Ok(gap(plan, e));
+        }
     }
     // A batch has one descriptor-backed scan per physical root; aliases stay visible gaps.
     if !seen.insert(identity.clone()) {
@@ -134,6 +146,9 @@ pub fn scan(
     }
     plan.physical_binding = Some(canonical::hash(identity.as_bytes()));
     let index = Path::new("steamapps/libraryfolders.vdf");
+    if !configured(settings, root)? {
+        return revoked();
+    }
     let bytes = fs.read(index);
     plan.index_revision = bytes.as_ref().ok().map(|b| canonical::hash(b));
     match bytes.and_then(|b| keyvalues::parse(&b)).and_then(|kv| {
@@ -164,9 +179,19 @@ pub fn scan(
             }
         }
     }
-    let mut report = fs.scan_progress(plan, cancel, progress)?;
+    let Some(mut report) =
+        fs.scan_while(plan, cancel, progress, &mut || configured(settings, root))?
+    else {
+        return revoked();
+    };
+    if !configured(settings, root)? {
+        return revoked();
+    }
     if fs.read(index).ok().map(|b| canonical::hash(&b)) != report.plan.index_revision {
         report.index_issues.push("library-index-changed".into());
+    }
+    if !configured(settings, root)? {
+        return revoked();
     }
     // Reopen only the same authorized path without following links; a replaced/missing
     // mount cannot turn a descriptor to an old detached directory into full coverage.

@@ -798,3 +798,81 @@ fn a_second_scheduler_cannot_recover_or_close_an_active_scheduler_attempt() {
             .contains("another discovery scheduler")
     );
 }
+#[test]
+fn root_removed_during_a_controlled_scan_closes_with_the_admitted_plan_only() {
+    let lab = Lab::new();
+    let r = lab.add("root", "native");
+    let root = lab.root(&r);
+    for app in [41, 42, 43] {
+        manifest(root.path(), app, "4");
+    }
+    let owner = lab.settings.lock().unwrap().owner().to_string();
+    let plan = controlled::plan(&owner, &root, id(), 10).unwrap();
+    integration::register(&lab.store, &plan).unwrap();
+    let mut reads = 0;
+    let report = controlled::scan(
+        &lab.settings,
+        &root,
+        plan.clone(),
+        Arc::new(AtomicBool::new(false)),
+        &mut BTreeSet::new(),
+        &mut |_| {
+            reads += 1;
+            if reads == 1 {
+                lab.settings.lock().unwrap().remove(&r).unwrap();
+            }
+        },
+    )
+    .unwrap();
+    assert_eq!(reads, 1);
+    // Nothing derived from the revoked read survives, not even the index revision
+    // or physical binding.
+    assert_eq!(report.plan, plan);
+    assert_eq!(report.outcome(), "inconclusive");
+    assert_eq!(
+        report.index_issues,
+        ["configuration-changed-during-discovery"]
+    );
+    assert_eq!(report.roots.len(), 1);
+    assert!(report.roots[0].observations.is_empty());
+    assert!(!report.roots[0].inspected);
+    integration::apply(&lab.store, &report).unwrap();
+    let s = lab.store.snapshot().unwrap();
+    assert_eq!(s.rows("evidence_records").count(), 0);
+    assert_eq!(s.rows("source_entries").count(), 0);
+}
+#[test]
+fn fixture_v1_scan_does_not_consult_root_configuration() {
+    let lab = Lab::new();
+    let r = lab.add("root", "native");
+    let path = lab.root(&r).path().to_path_buf();
+    manifest(&path, 41, "4");
+    manifest(&path, 42, "4");
+    let fixture = FixtureFs::open(&path).unwrap();
+    let plan = fixture.plan(id(), 10).unwrap();
+    // Configuration changes, even mid-scan, are not inputs to fixture-v1 discovery.
+    lab.settings.lock().unwrap().remove(&r).unwrap();
+    let report = fixture
+        .scan_progress(plan, Arc::new(AtomicBool::new(false)), &mut |_| {
+            let mut settings = lab.settings.lock().unwrap();
+            if settings.roots().is_empty() {
+                settings.set(&r, &path, "flatpak", false).unwrap();
+            } else {
+                settings.remove(&r).unwrap();
+            }
+        })
+        .unwrap();
+    assert_eq!(report.plan.profile, Profile::FixtureV1);
+    assert_eq!(report.roots[0].observations.len(), 2);
+    assert_eq!(report.outcome(), "complete");
+    integration::register(&lab.store, &report.plan).unwrap();
+    integration::apply(&lab.store, &report).unwrap();
+    assert_eq!(
+        lab.store
+            .snapshot()
+            .unwrap()
+            .rows("evidence_records")
+            .count(),
+        2
+    );
+}
