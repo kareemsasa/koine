@@ -152,6 +152,8 @@ pub fn scan(
         Err(e) => return Ok(gap(plan, e)),
     };
     let identity = fs.identity()?;
+    #[cfg(test)]
+    tests::before_check(Check::Bind);
     {
         let mut configured = settings.lock().map_err(|_| "settings lock poisoned")?;
         if !still_configured(&configured, root) {
@@ -167,6 +169,8 @@ pub fn scan(
     }
     plan.physical_binding = Some(canonical::hash(identity.as_bytes()));
     let index = Path::new("steamapps/libraryfolders.vdf");
+    #[cfg(test)]
+    tests::before_check(Check::Index);
     if !configured(settings, root)? {
         return revoked();
     }
@@ -200,17 +204,24 @@ pub fn scan(
             }
         }
     }
-    let Some(mut report) =
-        fs.scan_while(plan, cancel, progress, &mut || configured(settings, root))?
+    let Some(mut report) = fs.scan_while(plan, cancel, progress, &mut || {
+        #[cfg(test)]
+        tests::before_check(Check::Scan);
+        configured(settings, root)
+    })?
     else {
         return revoked();
     };
+    #[cfg(test)]
+    tests::before_check(Check::ClosingIndex);
     if !configured(settings, root)? {
         return revoked();
     }
     if fs.read(index).ok().map(|b| canonical::hash(&b)) != report.plan.index_revision {
         report.index_issues.push("library-index-changed".into());
     }
+    #[cfg(test)]
+    tests::before_check(Check::Reopen);
     if !configured(settings, root)? {
         return revoked();
     }
@@ -231,6 +242,16 @@ pub fn scan(
         }
     }
     Ok(report)
+}
+/// Test-only names for the configuration checks made after the attempt starts.
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Check {
+    Bind,
+    Index,
+    Scan,
+    ClosingIndex,
+    Reopen,
 }
 pub(crate) fn definitive_failure(code: &str) -> bool {
     matches!(
@@ -261,6 +282,136 @@ impl Report {
             "failed"
         } else {
             "inconclusive"
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::Lab;
+    use std::cell::RefCell;
+    type Hook = Box<dyn FnMut(Check)>;
+    thread_local! {
+        static HOOK: RefCell<Option<Hook>> = RefCell::new(None);
+    }
+    /// Runs this thread's hook, if any, immediately before a configuration check.
+    pub(super) fn before_check(at: Check) {
+        HOOK.with(|h| {
+            if let Some(hook) = h.borrow_mut().as_mut() {
+                hook(at)
+            }
+        });
+    }
+    #[derive(Clone, Copy, Debug)]
+    enum Change {
+        Remove,
+        Reconfigure,
+        Authorize,
+    }
+    /// Changes the root's configuration immediately before the check `at`, then
+    /// asserts the attempt is discarded there: no later check (so no later source
+    /// access) runs, only `reads` manifests were read, and nothing is committed.
+    fn revoke_at(at: Check, change: Change, real: bool, reads: usize) {
+        let lab = Lab::new();
+        let rid = if real {
+            lab.add_authorized_real("root")
+        } else {
+            lab.add("root")
+        };
+        let root = lab.root(&rid);
+        std::fs::write(
+            root.path().join("steamapps/appmanifest_43.acf"),
+            "\"AppState\" {\"appid\" \"43\" \"installdir\" \"Synthetic 43\" \"name\" \"Synthetic 43\" \"StateFlags\" \"4\"}",
+        )
+        .unwrap();
+        let plan = plan(lab.settings.lock().unwrap().owner(), &root, id(), 10).unwrap();
+        integration::register(&lab.store, &plan).unwrap();
+        let seen = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let (settings, record, target) = (lab.settings.clone(), seen.clone(), root.clone());
+        HOOK.with(|h| {
+            *h.borrow_mut() = Some(Box::new(move |check| {
+                record.borrow_mut().push(check);
+                if check != at {
+                    return;
+                }
+                let mut c = settings.lock().unwrap();
+                match change {
+                    Change::Remove => c.remove(target.id()).unwrap(),
+                    Change::Reconfigure => c
+                        .set(target.id(), target.path(), "flatpak", target.synthetic())
+                        .unwrap(),
+                    // An in-place change: same scope generation, different approval.
+                    Change::Authorize => c.authorize(target.id(), target.path()).unwrap(),
+                }
+            }))
+        });
+        let mut progress = 0;
+        let report = scan(
+            &lab.settings,
+            &root,
+            plan.clone(),
+            Arc::new(AtomicBool::new(false)),
+            &mut BTreeSet::new(),
+            &mut |_| progress += 1,
+        );
+        HOOK.with(|h| *h.borrow_mut() = None);
+        let report = report.unwrap();
+        let context = format!("{at:?} {change:?} real={real}");
+        assert_eq!(
+            seen.borrow().last(),
+            Some(&at),
+            "{context}: {:?}",
+            seen.borrow()
+        );
+        assert_eq!(
+            seen.borrow().iter().filter(|c| **c == at).count(),
+            1,
+            "{context}"
+        );
+        assert_eq!(progress, reads, "{context}");
+        assert_eq!(report.plan, plan, "{context}");
+        assert_eq!(report.index_issues, [CHANGED_DURING_DISCOVERY], "{context}");
+        assert_eq!(report.outcome(), "inconclusive", "{context}");
+        assert!(
+            report
+                .roots
+                .iter()
+                .all(|r| r.observations.is_empty() && !r.inspected),
+            "{context}"
+        );
+        if matches!(at, Check::Bind) {
+            // A root that lost its configuration before binding is never bound.
+            assert!(
+                lab.settings
+                    .lock()
+                    .unwrap()
+                    .roots()
+                    .iter()
+                    .all(|r| r.binding().is_none()),
+                "{context}"
+            );
+        }
+        integration::apply(&lab.store, &report).unwrap();
+        let s = lab.store.snapshot().unwrap();
+        assert_eq!(s.rows("evidence_records").count(), 0, "{context}");
+        assert_eq!(s.rows("source_entries").count(), 0, "{context}");
+    }
+    #[test]
+    fn a_change_before_any_check_after_the_start_discards_the_attempt_there() {
+        for (at, reads) in [
+            (Check::Bind, 0),
+            (Check::Index, 0),
+            (Check::ClosingIndex, 3),
+            (Check::Reopen, 3),
+        ] {
+            for change in [Change::Remove, Change::Reconfigure] {
+                for real in [false, true] {
+                    revoke_at(at, change, real, reads);
+                }
+            }
+            // Authorizing a synthetic root keeps its scope but changes its approval.
+            revoke_at(at, Change::Authorize, false, reads);
         }
     }
 }
