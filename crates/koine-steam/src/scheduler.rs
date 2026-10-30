@@ -641,6 +641,243 @@ mod tests {
         );
         assert_eq!(s.rows("evidence_records").count(), 0);
     }
+    /// Durable outcome, evidence count, diagnostic codes and whether any coverage
+    /// part of the collection was inspected.
+    fn closed(lab: &Lab, delivery: &str) -> (String, usize, Vec<String>, bool) {
+        let s = lab.store.snapshot().unwrap();
+        let delivery = Value::from(delivery.to_string());
+        let mine = |r: &&Record| r.get("collection_id") == &delivery;
+        (
+            s.find("collection_closures", "collection_id", &delivery)
+                .unwrap()
+                .text("outcome")
+                .unwrap()
+                .to_string(),
+            s.rows("evidence_records").filter(mine).count(),
+            s.rows("diagnostics")
+                .filter(mine)
+                .map(|d| d.text("code").unwrap().to_string())
+                .collect(),
+            s.rows("coverage_parts")
+                .filter(mine)
+                .any(|p| p.is("inspection", "inspected")),
+        )
+    }
+    const CHANGED: &str = "configuration-changed-after-admission";
+    /// Like `gated`, but holds only the first scan so later scans run freely.
+    fn gated_once() -> (Observer, mpsc::Receiver<()>, mpsc::Sender<()>) {
+        let (gate, reached, release) = gated();
+        let used = AtomicBool::new(false);
+        let observer = Arc::new(move |t: &Ticket, count| {
+            if count == 1 && !used.swap(true, Ordering::SeqCst) {
+                gate(t, count);
+            }
+        });
+        (observer, reached, release)
+    }
+    #[test]
+    fn configuration_change_after_admission_closes_only_that_attempt_without_blocking() {
+        let lab = Lab::new();
+        let hold = lab.add("hold");
+        let r = lab.add("root");
+        let path = lab.root(&r).path().to_path_buf();
+        let (observer, reached, release) = gated_once();
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let first = scheduler.refresh(id(), 10, &[hold]).unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        let admitted = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        // Reconfiguring rotates the scope generation of the admitted root.
+        lab.settings
+            .lock()
+            .unwrap()
+            .set(&r, &path, "flatpak", true)
+            .unwrap();
+        release.send(()).unwrap();
+        assert_eq!(first.wait().state, State::Complete);
+        let p = admitted.wait();
+        // The scheduler is not blocked: another request is admitted.
+        let next = scheduler.refresh(id(), 11, &[r]).unwrap();
+        assert_eq!(p.state, State::Inconclusive);
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!(p.observations, 0);
+        assert_eq!(p.inspected_records, 0);
+        assert_eq!(p.completed_roots, 1);
+        assert_eq!(p.outcomes, ["inconclusive"]);
+        // The root holds two readable manifests; a source read would have produced
+        // observations and inspected coverage.
+        let (outcome, evidence, codes, inspected) = closed(&lab, &admitted.id);
+        assert_eq!(outcome, "inconclusive");
+        assert_eq!(evidence, 0);
+        assert!(codes.iter().any(|c| c == CHANGED), "{codes:?}");
+        assert!(!inspected);
+        let next = next.wait();
+        assert_eq!(next.state, State::Complete);
+        assert_eq!(next.observations, 2);
+        assert!(next.error.is_none());
+    }
+    #[test]
+    fn multi_root_request_still_scans_roots_whose_configuration_is_unchanged() {
+        let lab = Lab::new();
+        let hold = lab.add("hold");
+        let kept = lab.add("kept");
+        let removed = lab.add("removed");
+        let (observer, reached, release) = gated_once();
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let first = scheduler.refresh(id(), 10, &[hold]).unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        let batch = scheduler
+            .refresh(id(), 10, &[kept.clone(), removed.clone()])
+            .unwrap();
+        lab.settings.lock().unwrap().remove(&removed).unwrap();
+        release.send(()).unwrap();
+        assert_eq!(first.wait().state, State::Complete);
+        let p = batch.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!(p.state, State::Partial);
+        assert_eq!(p.observations, 2);
+        assert_eq!(p.completed_roots, 2);
+        // Attempts follow root-id order.
+        let (kept_at, removed_at) = if kept < removed { (0, 1) } else { (1, 0) };
+        let (outcome, evidence, _, inspected) = closed(&lab, &p.attempts[kept_at]);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 2, true)
+        );
+        let (outcome, evidence, codes, inspected) = closed(&lab, &p.attempts[removed_at]);
+        assert_eq!(outcome, "inconclusive");
+        assert_eq!(evidence, 0);
+        assert!(codes.iter().any(|c| c == CHANGED), "{codes:?}");
+        assert!(!inspected);
+        assert_eq!(
+            scheduler.refresh(id(), 11, &[kept]).unwrap().wait().state,
+            State::Complete
+        );
+    }
+    #[test]
+    fn revoked_real_root_authorization_after_admission_reads_no_source() {
+        let lab = Lab::new();
+        let hold = lab.add("hold");
+        let r = lab.add_authorized_real("real");
+        let path = lab.root(&r).path().to_path_buf();
+        assert!(lab.root(&r).authorized());
+        let (observer, reached, release) = gated_once();
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let first = scheduler.refresh(id(), 10, &[hold]).unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        let admitted = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        // Removing and configuring the same path again clears the approval.
+        {
+            let mut settings = lab.settings.lock().unwrap();
+            settings.remove(&r).unwrap();
+            settings.set(&r, &path, "native", false).unwrap();
+        }
+        assert!(!lab.root(&r).authorized());
+        release.send(()).unwrap();
+        assert_eq!(first.wait().state, State::Complete);
+        let p = admitted.wait();
+        assert_eq!(p.state, State::Inconclusive);
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.observations, p.inspected_records), (0, 0));
+        let (outcome, evidence, codes, inspected) = closed(&lab, &admitted.id);
+        assert_eq!(outcome, "inconclusive");
+        assert_eq!(evidence, 0);
+        assert!(codes.iter().any(|c| c == CHANGED), "{codes:?}");
+        assert!(!inspected);
+        // A fresh request is admitted and still refused source access until the
+        // exact path is authorized again.
+        let next = scheduler
+            .refresh(id(), 11, std::slice::from_ref(&r))
+            .unwrap();
+        let p = next.wait();
+        assert_eq!(p.state, State::Inconclusive);
+        assert!(p.error.is_none());
+        let (_, evidence, codes, inspected) = closed(&lab, &next.id);
+        assert_eq!(evidence, 0);
+        assert!(
+            codes
+                .iter()
+                .any(|c| c == "explicit-root-authorization-required"),
+            "{codes:?}"
+        );
+        assert!(!inspected);
+    }
+    #[test]
+    fn real_root_authorized_only_after_admission_is_not_read_by_that_request() {
+        let lab = Lab::new();
+        let hold = lab.add("hold");
+        let r = lab.add_authorized_real("real");
+        let path = lab.root(&r).path().to_path_buf();
+        // Configure the same path again so the root is real-mode and unauthorized.
+        {
+            let mut settings = lab.settings.lock().unwrap();
+            settings.remove(&r).unwrap();
+            settings.set(&r, &path, "native", false).unwrap();
+        }
+        assert!(!lab.root(&r).authorized());
+        let (observer, reached, release) = gated_once();
+        let scheduler = Scheduler::start(
+            lab.store.clone(),
+            lab.settings.clone(),
+            &lab.db,
+            10,
+            observer,
+        )
+        .unwrap();
+        let first = scheduler.refresh(id(), 10, &[hold]).unwrap();
+        reached.recv_timeout(Duration::from_secs(5)).unwrap();
+        let admitted = scheduler
+            .refresh(id(), 10, std::slice::from_ref(&r))
+            .unwrap();
+        lab.settings.lock().unwrap().authorize(&r, &path).unwrap();
+        assert!(lab.root(&r).authorized());
+        release.send(()).unwrap();
+        assert_eq!(first.wait().state, State::Complete);
+        let p = admitted.wait();
+        assert_eq!(p.state, State::Inconclusive);
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!((p.observations, p.inspected_records), (0, 0));
+        let (outcome, evidence, codes, inspected) = closed(&lab, &admitted.id);
+        assert_eq!(outcome, "inconclusive");
+        assert_eq!(evidence, 0);
+        assert!(codes.iter().any(|c| c == CHANGED), "{codes:?}");
+        assert!(!inspected);
+        // A fresh request is admitted and uses the authorization now recorded.
+        let next = scheduler.refresh(id(), 11, &[r]).unwrap();
+        let p = next.wait();
+        assert!(p.error.is_none(), "{:?}", p.error);
+        assert_eq!(p.state, State::Complete);
+        assert_eq!(p.observations, 2);
+        let (outcome, evidence, _, inspected) = closed(&lab, &next.id);
+        assert_eq!(
+            (outcome.as_str(), evidence, inspected),
+            ("complete", 2, true)
+        );
+    }
     #[test]
     fn pending_registration_reopens_with_original_scope_and_no_source_read() {
         let lab = Lab::new();
